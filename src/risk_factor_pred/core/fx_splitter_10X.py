@@ -1,5 +1,7 @@
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
+from concurrent.futures import ProcessPoolExecutor
+from risk_factor_pred.consts import SEC_DIR, MAX_WORKERS
 from itertools import islice
 import re
 import time
@@ -22,12 +24,12 @@ def before_dot(s: str) -> str:
 
 def item_dict_builder(path):
     """
-    Build an ordered list of detected 10-K 'Item' headings with line numbers.
+    Build an ordered list of detected 10-K 'Item' with their line number.
 
     Reads the file at 'path', scans line-by-line for headings that look like
     'Item 1.', 'Item 1A.', etc., and returns a list of dictionaries containing:
-      - item_n: normalized item token (e.g., "1", "1A")
-      - line_no: 1-indexed line number where the heading appears
+      - item_num: normalized item token (e.g., "1", "1A")
+      - item_line: 1-indexed line number where the heading appears
         # Change to length of words/char post 'Item <num>.'
         # Must add 'Item <num> and <num>.'
     Consecutive duplicate item tokens are removed (deduped) to reduce noise.
@@ -47,15 +49,15 @@ def item_dict_builder(path):
         label = m.group('rest')
 
         out.append({
-            'item_n': before_dot(_normalize_ws(label).split()[0]).upper(),
-            'line_no': i,
+            'item_num': before_dot(_normalize_ws(label).split()[0]).upper(),
+            'item_line': i,
         })
 
     # dedupe consecutive duplicates
     deduped = []
     last = None
     for row in out:
-        key = row['item_n'].lower()
+        key = row['item_num'].lower()
         if key != last:
             deduped.append(row)
         last = key
@@ -65,14 +67,14 @@ def number_of_rounds(item_dict, bool):
     """
     Extract numeric item components and estimate how many full 'rounds' of items exist.
 
-    For each entry in `item_dict:` list[dict], extracts only digits from the `item_n` field and
+    For each entry in `item_dict:` list[dict], extracts only digits from the `item_num` field and
     converts them to integers. 
     Then estimates the number of repeated "rounds" of the table-of-contents items by
     counting occurrences of `max_num` and `max_num - 1`.
     """
     out = []
     for items in item_dict:
-        digits = "".join(ch for ch in items.get("item_n") if ch.isdigit() and ch)
+        digits = "".join(ch for ch in items.get("item_num") if ch.isdigit() and ch)
         out.append(digits)
     listAllItems = [int(i) for i in out]
 
@@ -93,14 +95,14 @@ def number_of_rounds(item_dict, bool):
         print(listAllItems)
         return listAllItems
 
-def table_content_builder(item_dict):
+def table_content_builder(filepath):
     """
-    Builds a `tableContent` starting from common early 10-K item labels and then extends it
-    up to the maximum item number observed in `item_dict` (including optional suffix letters A/B/C).
-
+    Builds a `tableContent` with a list of all the items in the 10K
+    
     Returns: list[str]
     eg ['1', '1A', '1B', '1C', '2', ...]
     """
+    item_dict = item_dict_builder(filepath)
     listAllItems = number_of_rounds(item_dict, bool=False)
     tableContent = ["1", "1A", "1B", "1C", "1D", "2", "3", "4", "5", "6", "7", "7A", "8"]
     letters_tuple = ("","A","B","C")
@@ -110,15 +112,20 @@ def table_content_builder(item_dict):
             tableContent.append(n + l)    
     return tableContent
 
-def final_list(tableContent, item_dict):
+def item_segmentation_list(filepath):
     """
-    Makes a list of dict that contains the actual items
-
+    Makes a list of dict that contains the actual items and where they should be segmented.
+    
+    Retreves the table of content of the 10-K with the table_content_builder function.
+    Retreves the list of all the possible items and their location with the item_dict_builder function.
+    
     First, builds multiple candidate sequences of item headings by scanning in item_dict.
     Secondly, Selects the candidate that is most probably the item list
 
     Returns list[dict]: The selected sequence (list of dicts with 'Item number' and 'Item line').
     """
+    tableContent = table_content_builder(filepath)
+    item_dict = item_dict_builder(filepath)
 
     list_lines = []
     last_ele = 0
@@ -126,21 +133,54 @@ def final_list(tableContent, item_dict):
         lines = []
         for itemTC in tableContent:
             for r in item_dict:
-                if itemTC == r.get('item_n') and r.get('line_no') > last_ele:
+                if itemTC == r.get('item_num') and r.get('item_line') > last_ele:
                     lines.append(r)
-                    last_ele = r['line_no']
+                    last_ele = r['item_line']
                     break
         list_lines.append(lines)
 
-    diff = 0
-    for i in range(len(list_lines)):
-        n = list_lines[i][-1]['line_no'] - list_lines[i][1]['line_no']
-        if n > diff:
-            num = i
-            diff = n
-    return list_lines[num]
+    # ----- Choose candidate with greatest character span -----
 
-def print_items(filepath, final_split, p):
+    if len(list_lines) == 1:
+        print(list_lines[0])
+        return list_lines[0]
+
+    with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+        text = f.read()
+
+    def _line_start_offsets(text: str):
+        starts = [0]
+        for line in text.splitlines(keepends=True):
+            starts.append(starts[-1] + len(line))
+        return starts
+
+    def _normalize_line_index(item_line: int, num_lines: int) -> int:
+        if item_line is None:
+            return 0
+        if 1 <= item_line <= num_lines:  # likely 1-based
+            return item_line - 1
+        return max(0, min(item_line, num_lines - 1))
+
+    line_start_char = _line_start_offsets(text)
+    num_lines = len(text.splitlines())
+
+    best_i = 0
+    best_span = float("-inf")
+
+    for i, cand in enumerate(list_lines):
+        start_line = _normalize_line_index(cand[1]["item_line"], num_lines)
+        end_line = _normalize_line_index(cand[-1]["item_line"], num_lines)
+
+        span_chars = line_start_char[end_line] - line_start_char[start_line]
+
+        if span_chars > best_span:
+            best_span = span_chars
+            best_i = i
+    
+    print(list_lines[best_i])
+    return list_lines[best_i]
+
+def print_items(cik):
     """
     Write per-item text files by slicing the input document between detected item headings.
 
@@ -156,92 +196,36 @@ def print_items(filepath, final_split, p):
         Selected sequence of headings (output of `final_list`), containing 'item_n' and 'line_no'.
     p : pathlib.Path
         Output directory where item files will be written (typically the filing folder).
-
-    Returns
-    -------
-    None
-
-    Side Effects
-    ------------
-    Writes multiple `item*.txt` files to disk.
-
-    Notes
-    -----
-    The function currently appends a hard-coded terminal line number (11849) as the
-    end boundary. This should ideally be replaced by the actual file length to
-    avoid truncation or out-of-range assumptions.
     """
-    page_list = [i['line_no'] for i in final_split]
-    page_list.append(11849)
-
-    for n, i in enumerate(final_split):
-        start, end = page_list[n], page_list[n+1]
-        with filepath.open("r", encoding="utf-8", errors="replace") as f:
-            lines = list(islice(f, start - 1, end-1))
-        chunk = "".join(lines)
-        filename = f"item{i['item_n']}.txt"
-
-        full_path = p / filename
-        with open(full_path, "w", encoding='utf-8') as f:
-            f.write(chunk)
-    print("okkkkk")
-
-def version2(path, p):
-    """
-    End-to-end item-splitting routine for a single filing text file.
-
-    Pipeline:
-      1) detect item headings and line numbers (`item_dict_builder`),
-      2) compute numeric item list and estimate number of rounds (`digits_only_list`),
-      3) build candidate item labels (`table_content_builder`),
-      4) construct candidate item sequences (`make_item_loops`),
-      5) select the best sequence (`final_list`),
-      6) write out per-item text files (`print_items`).
-
-    Parameters
-    ----------
-    path : pathlib.Path
-        Path to the cleaned filing text file (e.g., clean-full-submission.txt).
-    p : pathlib.Path
-        Output directory where per-item files will be written.
-
-    Returns
-    -------
-    None
-
-    Side Effects
-    ------------
-    Writes item files to disk and prints intermediate debugging output.
-    """
-    item_dict = item_dict_builder(path)                                                       # Make list of dict indicating all item n. and line n. for each item 
-    tableContent = table_content_builder(item_dict)
-    print_items(path, final_list(tableContent, item_dict), p)
-    time.sleep(0.5)
-
-def try_exercize(p):
-    """
-    Attempt to split a single filing into per-item text files, swallowing failures.
-
-    Constructs the expected cleaned filing path `p/clean-full-submission.txt` and runs
-    `version2(...)`. If any exception occurs, prints "failed" and returns.
-
-    Parameters
-    ----------
-    p : pathlib.Path
-        Filing directory containing `clean-full-submission.txt`.
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    Catching all exceptions with a bare `except:` makes debugging difficult and can
-    hide real errors. Consider catching `Exception as e` and printing/logging `e`.
-    """
-    filepath = p / "full-submission.txt"
     try:
-        version2(filepath, p)
+        path = SEC_DIR / cik / '10-K'
+        for filing in path.iterdir():
+            p = path / filing
+            filepath = p / "full-submission.txt"
+            item_segmentation = item_segmentation_list(filepath)
+            page_list = [i['item_line'] for i in item_segmentation]
+            page_list.append(11849)
+
+            for n, i in enumerate(item_segmentation):
+                start, end = page_list[n], page_list[n+1]
+                with filepath.open("r", encoding="utf-8", errors="replace") as f:
+                    lines = list(islice(f, start - 1, end-1))
+                chunk = "".join(lines)
+                filename = f"item{i['item_num']}.txt"
+
+                full_path = p / filename
+                with open(full_path, "w", encoding='utf-8') as f:
+                    f.write(chunk)
+            print("okkkkk")
+            time.sleep(0.5)
     except:
         print("failed")
+    return
+
+def try_exercize(ciks: list):
+    """
+        Runs print_items in parallel
+    """
+    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        list(executor.map(print_items, ciks))
     return

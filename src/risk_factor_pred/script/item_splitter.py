@@ -1,26 +1,10 @@
 from risk_factor_pred.core import fx_splitter_10X as fs, secDownloader as sd
-from risk_factor_pred.consts import SEC_DIR, MAX_WORKERS
-from concurrent.futures import ProcessPoolExecutor
+from risk_factor_pred.consts import SEC_DIR
 
 if __name__ == "__main__":
-    cik = "0000002098"
-    filings = "0001026608-06-000045"
 
-    if sd.inputLetter() == 'l':
-        paths = []
-        for cik in SEC_DIR.iterdir():
-            if cik.is_dir():
-                cik = cik.name
-                folders_path = SEC_DIR / cik / "10-K"
-                print(cik)
-                for p in folders_path.iterdir():
-                    if p.is_dir():
-                        paths.append(p)
+    # Create list of ciks from excel file or request cik in input
+    ciks = [p.name for p in SEC_DIR.iterdir()] if sd.inputLetter() == 'l' else [input("Enter ticker...").upper()]
 
-        # process all filings in parallel
-        with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            list(executor.map(fs.try_exercize, paths))
-        print(paths)
-    else:
-        p = SEC_DIR / cik / "10-K" / filings
-        fs.try_exercize(p)
+    # 
+    fs.try_exercize(ciks)

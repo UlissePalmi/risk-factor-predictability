@@ -324,6 +324,7 @@ def clean_html(file_content):
 
     cleaned = strip_all_html_tags(cleaned)
     cleaned = remove_numeric_entities(cleaned)
+    cleaned = soft_unwrap_html_lines(file_content)
     cleaned = break_on_item_heads(cleaned)
     cleaned = clean_lines(cleaned)
     return cleaned

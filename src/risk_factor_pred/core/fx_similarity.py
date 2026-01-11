@@ -1,5 +1,5 @@
 from itertools import repeat
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from nltk.sentiment import SentimentIntensityAnalyzer
 from risk_factor_pred.consts import SEC_DIR, MAX_WORKERS
 import nltk
@@ -58,8 +58,7 @@ def order_filings(records):
 
 def make_comps(cik):
     """
-    
-        Prepare consecutive 10-K Item 1A comparison pairs for a given cik.
+    Prepare consecutive 10-K Item 1A comparison pairs for a given cik.
 
     The function scans SEC_DIR/<ticker>/10-K/* and keeps only filings that
     contain an extracted `item1A.txt`. It then orders filings by date and
@@ -71,7 +70,6 @@ def make_comps(cik):
     folders_path = SEC_DIR / cik / "10-K"
     for i in folders_path.iterdir():
         date_data.append(check_date(i) if (i / "item1A.txt").is_file() else None) 
-    
     ordered_filings = order_filings(date_data)
 
     comps_list = []
@@ -85,7 +83,7 @@ def make_comps(cik):
     
     return comps_list
 
-def concurrency_runner(writer, cik):
+def concurrency_runner(writer, ciks):
     """
     Compute similarity features for a CIK and write results using multiprocessing.
 
@@ -93,21 +91,28 @@ def concurrency_runner(writer, cik):
     then uses ProcessPoolExecutor to parallelize the similarity calculation across comparisons.
     The resulting dictionaries are written via `writer.writerows(model)` on a csv file.
     """
-    model = []
+    #model = []
     try:
         with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            model = list(executor.map(process_comps, make_comps(cik), repeat(cik)))
-            writer.writerows(model)
+            futures = {executor.submit(worker, cik): cik for cik in ciks}
+
+            for fut in as_completed(futures):
+                rows = fut.result()
+                writer.writerows(rows)
     except:
         print("Skipped")
 
-
-
 # ---------------------------------------------------------------------------------------
 
+def worker(cik):
+    comps = make_comps(cik)
+    rows = []
+    for comp in comps:
+        rows.append(process_comps(comp, cik))    
+    return rows
 
 
-def process_comps(comps, cik):
+def process_comps(comp, cik):
     """
     Compute similarity metrics for a single consecutive filing comparison.
 
@@ -115,12 +120,13 @@ def process_comps(comps, cik):
     Levenshtein distance, similarity, and sentiment statistics for newly introduced
     words (relative to the older filing).
     """
-    filingNew, filingOld = comps["filing1"], comps["filing2"]
+    
+    filingNew, filingOld = comp["filing1"], comp["filing2"]
     fileNew = SEC_DIR / cik / "10-K" / filingNew / "item1A.txt"
     fileOld = SEC_DIR / cik / "10-K" / filingOld / "item1A.txt"
     textNew = fileNew.read_text(encoding="utf-8", errors="ignore")
     textOld = fileOld.read_text(encoding="utf-8", errors="ignore")
-    return min_edit_similarity(textNew, textOld, comps, cik)
+    return min_edit_similarity(textNew, textOld, comp, cik)
 
 
 # --------------------------------------------------------------------------------------------------------------------
