@@ -3,6 +3,8 @@ import re
 from typing import List
 import os
 
+_IGNORE_PRE = re.compile(r'\b(?:in|of|see|at|with|under|this|to)[ \t"“”]*$', re.IGNORECASE)
+
 # --------------------------------------------------------------------------------------------------------------------
 #                                              REGEX FOR HTML CLEANING
 # --------------------------------------------------------------------------------------------------------------------
@@ -288,11 +290,22 @@ def break_on_item_heads(text: str) -> str:
         r'\d+[A-Za-z]?'
         r'(?:\s*(?:and|to|through|-)\s*\d+[A-Za-z]?)*'
         r'\s*\.',re.IGNORECASE)
+    
     out = []
     last = 0
     for m in _HEAD_DETECT.finditer(text):
         start = m.start()
+
+        g = m.group(0)
+        lead = len(g) - len(g.lstrip(" \t"))
+        item_start = start + lead
+
         if start > 0 and text[start-1] != '\n':
+            ctx = text[max(0, item_start - 40):item_start]
+
+            if _IGNORE_PRE.search(ctx):
+                continue  # ignore it
+            
             out.append(text[last:start])
             out.append('\n')
             last = start
@@ -392,7 +405,7 @@ def ensure_space_after_item(text: str) -> str:
     """
     return re.sub(r'\b(Items?)\b(?=\S)', r'\1 ', text)
 
-def merge_item_with_number_line(text: str) -> str: # If a line is just 'Item'/'Items' and the following line starts with a number merges them
+def merge_item_with_number_line(text: str) -> str:
     """
     Merge lines where 'Item'/'Items' is on its own line and the next line begins with a digit.
 
