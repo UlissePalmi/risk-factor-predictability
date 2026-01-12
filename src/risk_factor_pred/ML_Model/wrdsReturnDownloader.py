@@ -1,16 +1,7 @@
 import wrds
 import pandas as pd
 from pathlib import Path
-
-# Creates returns.csv file
-
-SAVE_DIR = Path("data") / "tables" / "returns.csv"
-
-# 1. Connect
-db = wrds.Connection(wrds_username='username')
-
-df_input = pd.read_excel("master_all.xlsx")
-ciks = df_input['CIK'].astype(str).str.zfill(10).tolist()
+from risk_factor_pred.consts import CIK_LIST, TABLES_DIR
 
 def querymaker(cik):
     query = f"""
@@ -37,6 +28,16 @@ def querymaker(cik):
         AND (m.date <= link.linkenddt OR link.linkenddt IS NULL)
     """
     return query
+
+# Creates returns.csv file
+SAVE_DIR = TABLES_DIR / "returns.csv"
+
+# 1. Connect
+db = wrds.Connection(wrds_username='username')
+
+df_input = pd.read_csv(CIK_LIST)
+ciks = df_input['CIK'].astype(str).str.zfill(10).tolist()
+
 
 df1 = db.raw_sql(querymaker(ciks[0]))
 print(df1)
