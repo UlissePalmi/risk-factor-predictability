@@ -1,35 +1,31 @@
 import pandas as pd
-from pathlib import Path
+from risk_factor_pred.consts import SEC_DIR, TABLES_DIR
 import re
 
-df = pd.DataFrame(columns=['cik', 'year'])
-
-similarity_df = pd.read_csv('similarity_data.csv')
-similarity_df['ticker'] = similarity_df['ticker'].astype(int).map(lambda n: f"{n:010d}")
-
-pattern = re.compile(r"^\d{10}-(\d{2})-\d{6}$")
-
 def find_year(pname):
+    pattern = re.compile(r"^\d{10}-(\d{2})-\d{6}$")
     m = pattern.match(pname)
     yy = int(m.group(1))
     year = 1900 + yy if yy >= 70 else 2000 + yy
     return year
 
-root = Path("data") / "html" / "sec-edgar-filings"
+df = pd.DataFrame(columns=['cik', 'year'])
 
-for path in root.iterdir():
+similarity_df = pd.read_csv(TABLES_DIR / 'similarity.csv')
+similarity_df['cik'] = similarity_df['cik'].astype(int).map(lambda n: f"{n:010d}")
+
+for path in SEC_DIR.iterdir():
     folder = path / "10-K"
-    cik_df = similarity_df[similarity_df['ticker'] == path.name]
-    if cik_df.empty:
-        #print(f"No rows found for ticker {path.name}")
-        years = [find_year(p.name) for p in folder.iterdir()]
+    cik_df = similarity_df[similarity_df['cik'] == path.name]
     
+    if cik_df.empty:
+        years = [find_year(p.name) for p in folder.iterdir()]
     else:
         a = cik_df["date_a"].tolist()
         a.append(cik_df["date_b"].iloc[-1])
         a = [i[:4] for i in a]
         
-        # p.name is the ticker
+        # p.name is the cik
         years = [str(find_year(p.name)) for p in folder.iterdir() if not str(find_year(p.name)) in a]
         
     rows = [[path.name, year] for year in years]
@@ -38,4 +34,4 @@ for path in root.iterdir():
 
 print(df)
 
-df.to_csv("missing.csv")
+df.to_csv(TABLES_DIR / "missing_years.csv")

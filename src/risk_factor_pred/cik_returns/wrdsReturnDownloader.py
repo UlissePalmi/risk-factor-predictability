@@ -1,6 +1,5 @@
 import wrds
 import pandas as pd
-from pathlib import Path
 from risk_factor_pred.consts import CIK_LIST, TABLES_DIR
 
 def querymaker(cik):
@@ -38,20 +37,16 @@ db = wrds.Connection(wrds_username='username')
 df_input = pd.read_csv(CIK_LIST)
 ciks = df_input['CIK'].astype(str).str.zfill(10).tolist()
 
+dfs = []
 
-df1 = db.raw_sql(querymaker(ciks[0]))
-print(df1)
-for cik in ciks[1:]:
+for cik in ciks:
     query = querymaker(cik)
-    print(cik)
     try:
         df = db.raw_sql(query)
-        print("Success! Here is the data:")
-        print(df)
-        # exact syntax:
-        df1 = pd.concat([df1, df], ignore_index=True)
-
+        dfs.append(df)
+        print(f"{cik}: ok ({len(df)} rows)")
     except Exception as e:
-        print("Error:", e)
+        print(f"{cik}: error: {e}")
 
-df1.to_csv(SAVE_DIR)
+df_all = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+df_all.to_csv(SAVE_DIR)

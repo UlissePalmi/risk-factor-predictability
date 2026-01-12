@@ -16,7 +16,7 @@ def check_date(folder):
     """
     Finds the date the 10-K was released and returns a dict with "year", "month", "day" and "filing" keys
     
-    The function reads the `SEC_DIR/<ticker>/10-K/<filing_id>/full-submission.txt` file
+    The function reads the `SEC_DIR/<cik>/10-K/<filing_id>/full-submission.txt` file
     line-by-line and searches for: <filing_id>: YYYYMMDD. When it finds a matching line,
     it parses the portion after ':' and returns a dictionary with date information 
     """
@@ -59,7 +59,7 @@ def make_comps(cik):
     """
     Prepare consecutive 10-K Item 1A comparison pairs for a given cik.
 
-    The function scans SEC_DIR/<ticker>/10-K/* and keeps only filings that
+    The function scans SEC_DIR/<cik>/10-K/* and keeps only filings that
     contain an extracted `item1A.txt`. It then orders filings by date and
     constructs consecutive pairwise comparisons.
 
@@ -216,7 +216,7 @@ def levenshtein_tokens(a_tokens, b_tokens, cik):
         prev = cur
     return prev[n], new_words
 
-def min_edit_similarity(text_a: str, text_b: str, dict, ticker):
+def min_edit_similarity(text_a: str, text_b: str, dict, cik):
     """
     Compute disclosure-change features from two texts using edit distance and sentiment.
 
@@ -235,24 +235,24 @@ def min_edit_similarity(text_a: str, text_b: str, dict, ticker):
         Older period text (Item 1A).
     dict : dict
         Metadata dict containing "date1" and "date2".
-    ticker : str
+    cik : str
         Firm identifier, stored in output and used for progress printing.
 
     Returns
     -------
     dict
         Dictionary containing:
-          - ticker, date_a, date_b,
+          - cik, date_a, date_b,
           - distance (int), similarity (float),
           - len_a, len_b (token counts),
           - sentiment (float): mean compound score of newly introduced words.
     """
     A, B = tokenize(text_a), tokenize(text_b)
-    dist, new_words = levenshtein_tokens(A, B, ticker)
+    dist, new_words = levenshtein_tokens(A, B, cik)
     denom = len(A) + len(B)
     sim = 1.0 - (dist / denom if denom else 0.0)
     return {
-        "ticker": ticker, 
+        "cik": cik, 
         "date_a": dict["date1"], 
         "date_b": dict["date2"], 
         "distance": dist, 
