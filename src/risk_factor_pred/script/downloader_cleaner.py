@@ -1,5 +1,6 @@
 from risk_factor_pred.core import secDownloader as sd
 
+
 if __name__ == "__main__":
     
     # Create list of ciks from excel file or request cik in input

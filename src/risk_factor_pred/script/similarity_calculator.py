@@ -1,7 +1,6 @@
-from pathlib import Path
-import csv
 from risk_factor_pred.core import fx_similarity as sf, secDownloader as sd
 from risk_factor_pred.consts import TABLES_DIR, SEC_DIR
+import csv
 
 SAVE_DIR = TABLES_DIR / "similarity.csv"
 

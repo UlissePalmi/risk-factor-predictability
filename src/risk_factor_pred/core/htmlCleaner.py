@@ -324,21 +324,21 @@ def clean_html(file_content):
 
     cleaned = strip_all_html_tags(cleaned)
     cleaned = remove_numeric_entities(cleaned)
-    cleaned = soft_unwrap_html_lines(file_content)
+    cleaned = soft_unwrap_html_lines(cleaned)
     cleaned = break_on_item_heads(cleaned)
     cleaned = clean_lines(cleaned)
     return cleaned
 
-def print_clean_txt(html_content):
+def print_clean_txt(html_path):
     """
     Load a filing, clean it, and return the cleaned text.
     """
     try:
-        with open(html_content, 'r', encoding='utf-8') as file:
+        with open(html_path, 'r', encoding='utf-8') as file:
             file_content = file.read()
         cleaned = clean_html(file_content)
     except FileNotFoundError:
-        print(f"Error: The file '{html_content}' was not found.")
+        print(f"Error: The file '{html_path}' was not found.")
     return cleaned
 
 
@@ -486,8 +486,7 @@ def cleaner(cik, output_filename):
     for p in folders_path.iterdir():
         print(p)
         full_path = os.path.join(p, output_filename)
-        html_content = os.path.join(p,"full-submission.txt")
-        html_content = print_clean_txt(html_content)                    # html removal
+        html_content = print_clean_txt(full_path)                    # html removal
         html_content = cleaning_items(html_content)
         print_10X(full_path, html_content, output_filename)
     return

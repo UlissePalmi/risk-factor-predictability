@@ -38,7 +38,7 @@ def workerTasks(cik):
       2) zero-pad the CIK to 10 digits,
       3) invoke the HTML cleaning routine to produce a cleaned text file.
     """
-    tuple = download_for_cik(cik) 
+    tuple = download_for_cik(cik)
     htmlCleaner.cleaner(str(cik.zfill(10)), output_filename = "full-submission.txt")
     return tuple
 
