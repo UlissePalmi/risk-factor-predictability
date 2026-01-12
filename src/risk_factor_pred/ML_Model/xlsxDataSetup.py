@@ -1,5 +1,4 @@
 import pandas as pd
-import csv
 from pathlib import Path
 
 # Creates cleanSimData.csv file

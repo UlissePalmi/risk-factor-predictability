@@ -1,4 +1,3 @@
-from itertools import repeat
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from nltk.sentiment import SentimentIntensityAnalyzer
 from risk_factor_pred.consts import SEC_DIR, MAX_WORKERS

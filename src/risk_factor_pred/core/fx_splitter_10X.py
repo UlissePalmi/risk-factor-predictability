@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 from concurrent.futures import ProcessPoolExecutor
 from risk_factor_pred.consts import SEC_DIR, MAX_WORKERS

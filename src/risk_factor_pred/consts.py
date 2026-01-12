@@ -1,4 +1,3 @@
-#import os
 from pathlib import Path
 
 # ------------------ Directories ------------------ 
@@ -12,8 +11,6 @@ SEC_DIR = HTML_DIR / "sec-edgar-filings"
 
 TABLES_DIR = DATA_DIR / "tables"
 CIK_LIST = TABLES_DIR / "cik_list.xlsx"                                     # Excel containing list of CIKS
-
-
 
 # ---------- SETTINGS ----------
 FORM       = "10-K"                                                 # or "10-K", "10-KT", etc.

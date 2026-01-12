@@ -3,8 +3,6 @@ import re
 from typing import List
 import os
 
-_IGNORE_PRE = re.compile(r'\b(?:in|of|see|at|with|under|this|to)[ \t"“”]*$', re.IGNORECASE)
-
 # --------------------------------------------------------------------------------------------------------------------
 #                                              REGEX FOR HTML CLEANING
 # --------------------------------------------------------------------------------------------------------------------
@@ -290,6 +288,8 @@ def break_on_item_heads(text: str) -> str:
         r'\d+[A-Za-z]?'
         r'(?:\s*(?:and|to|through|-)\s*\d+[A-Za-z]?)*'
         r'\s*\.',re.IGNORECASE)
+    
+    _IGNORE_PRE = re.compile(r'\b(?:in|of|see|at|with|under|this|to)[ \t"“”]*$', re.IGNORECASE)
     
     out = []
     last = 0
