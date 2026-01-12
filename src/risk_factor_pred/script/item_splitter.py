@@ -1,4 +1,4 @@
-from risk_factor_pred.core import fx_splitter_10X as fs, secDownloader as sd
+from risk_factor_pred.core import fx_splitter as fs, secDownloader as sd
 from risk_factor_pred.consts import SEC_DIR
 
 if __name__ == "__main__":
