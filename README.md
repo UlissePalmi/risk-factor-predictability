@@ -47,12 +47,8 @@ All data artifacts should live under `data/` and are generally excluded from ver
 
 ```
 data/
-  raw/
-    sec/                # SEC downloader outputs (HTML and metadata)
-    wrds/               # WRDS extracts (if applicable)
-  interim/
-    sections/           # cleaned/split section text
-    similarity/         # similarity feature tables (CSV/Parquet)
+  html/
+    sec-edgar-filings/  # SEC downloader outputs (HTML and metadata)
   processed/
     datasets/           # model-ready merged datasets
   external/

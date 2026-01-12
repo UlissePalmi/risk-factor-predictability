@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Optional
 from concurrent.futures import ProcessPoolExecutor
-from risk_factor_pred.consts import SEC_DIR, MAX_WORKERS
+from risk_factor_pred.config import SEC_DIR, MAX_WORKERS
 from itertools import islice
 import re
 import time

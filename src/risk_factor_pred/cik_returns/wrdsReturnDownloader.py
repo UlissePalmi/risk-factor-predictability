@@ -1,6 +1,6 @@
 import wrds
 import pandas as pd
-from risk_factor_pred.consts import CIK_LIST, TABLES_DIR
+from risk_factor_pred.config import CIK_LIST, TABLES_DIR
 
 def querymaker(cik):
     query = f"""

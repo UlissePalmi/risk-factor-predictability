@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from risk_factor_pred.consts import TABLES_DIR
+from risk_factor_pred.config import TABLES_DIR
 
 # Creates cleanSimData.csv file
 

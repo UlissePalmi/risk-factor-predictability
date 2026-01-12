@@ -1,6 +1,6 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from nltk.sentiment import SentimentIntensityAnalyzer
-from risk_factor_pred.consts import SEC_DIR, MAX_WORKERS
+from risk_factor_pred.config import SEC_DIR, MAX_WORKERS
 import nltk
 import sys
 import re

@@ -1,5 +1,5 @@
 import pandas as pd
-from risk_factor_pred.consts import SEC_DIR, TABLES_DIR
+from risk_factor_pred.config import SEC_DIR, TABLES_DIR
 import re
 
 def find_year(pname):

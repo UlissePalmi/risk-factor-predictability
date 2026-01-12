@@ -1,4 +1,4 @@
-from risk_factor_pred.consts import SEC_DIR
+from risk_factor_pred.config import SEC_DIR
 import re
 from typing import List
 import os
