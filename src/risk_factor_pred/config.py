@@ -39,7 +39,7 @@ FINAL_DATASET = PROCESSED_PANEL_PATH / "final_dataset.csv"
 # ---------- SETTINGS ----------
 FORM       = "10-K"                                                 # or "10-K", "10-KT", etc.
 START_DATE = "2006-01-01"                                           # filings per CIK, only released after 2006
-MAX_WORKERS = 4                                                     # number of threads
+MAX_WORKERS = 16                                                     # number of threads
 # -------------------------------
 
 def ensure_project_dirs() -> None:

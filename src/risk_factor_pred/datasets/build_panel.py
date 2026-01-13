@@ -24,23 +24,24 @@ def merge_return(sim_df, return_df, months, period):
     return_df = return_df.copy()
     return_df["cik"] = (return_df["cik"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(10))
 
-    # 4. Merge sim_df with returns on firm identifier
+    # Merge sim_df with returns on firm identifier
     merged = sim_df.merge(
         return_df[["cik", "date", "retPlusOne"]],
         on="cik",
         how="left"
     )
 
-    # 5. Filter to dates in [prev_start, start_anchor)
+    # Filter to dates in [prev_start, start_anchor)
     merged = merged[
         (merged['date'] >= merged['start_anchor']) &
         (merged['date'] <= merged['end_anchor'])     # use < if you want end exclusive
     ].sort_values(["sim_idx", "date"])
 
-    # 6. Compute return over that window for each original row
+    # Compute return over that window for each original row
     prod_window = merged.groupby("sim_idx")["retPlusOne"].prod()
 
-    # 7. Map back to sim_df as a new column
+    # Map back to sim_df as a new column
     sim_df[f"{period}_{months}m_ret"] = (sim_df["sim_idx"].map(prod_window) - 1) * 100
+    sim_df = sim_df.dropna(subset=[f"{period}_{months}m_ret"])
 
     return sim_df.drop(columns=['start_anchor','end_anchor','sim_idx'])

@@ -98,11 +98,10 @@ def concurrency_runner(writer, ciks):
     then uses ProcessPoolExecutor to parallelize the similarity calculation across comparisons.
     The resulting dictionaries are written via `writer.writerows(model)` on a csv file.
     """
-    #model = []
     try:
         with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(worker, cik): cik for cik in ciks}
-
+            
             for fut in as_completed(futures):
                 rows = fut.result()
                 writer.writerows(rows)
@@ -114,8 +113,7 @@ def concurrency_runner(writer, ciks):
 def worker(cik):
     comps = make_comps(cik)
     rows = []
-    for comp in comps:
-        rows.append(process_comps(comp, cik))    
+    [rows.append(process_comps(comp, cik)) for comp in comps]
     return rows
 
 

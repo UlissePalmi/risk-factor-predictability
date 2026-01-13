@@ -1,4 +1,4 @@
-from risk_factor_pred.config import CIK_LIST
+from risk_factor_pred.config import CIK_LIST, INTERIM_ITEM1A_DIR
 import pandas as pd
 from sqlalchemy import text
 import wrds
@@ -32,9 +32,7 @@ def querymaker(cik):
 
 def df_with_returns():
     db = wrds.Connection(wrds_username='username')
-    df_input = pd.read_csv(CIK_LIST)
-    ciks = df_input['CIK'].astype(str).str.zfill(10).tolist()
-    ciks = ['0000000020']
+    ciks = [p.name for p in INTERIM_ITEM1A_DIR.iterdir()]
     dfs = []
 
     for cik in ciks:
@@ -47,4 +45,6 @@ def df_with_returns():
             print(f"{cik}: ok ({len(df)} rows)")
         except Exception as e:
             print(f"{cik}: error: {e}")
+    cols = ["cik", "date", "ret"]
+    dfs = [df.reindex(columns=cols) for df in dfs if df is not None and not df.empty]
     return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()

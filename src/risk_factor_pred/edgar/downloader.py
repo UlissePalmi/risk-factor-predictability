@@ -1,7 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from risk_factor_pred.config import FORM, START_DATE, MAX_WORKERS, RAW_DIR
 import time
-from ..text import clean
 from sec_edgar_downloader import Downloader
 
 def download_for_cik(cik: str):
@@ -20,20 +19,7 @@ def download_for_cik(cik: str):
     except Exception as e:
         return cik, "error", str(e)
 
-def workerTasks(cik):
-    """
-    Execute the per-CIK workflow: download filings and then clean them.
-
-    Steps:
-      1) download filings for the CIK (via `download_for_cik`),
-      2) zero-pad the CIK to 10 digits,
-      3) invoke the HTML cleaning routine to produce a cleaned text file.
-    """
-    tuple = download_for_cik(cik)
-    #html_cleaner.cleaner(str(cik.zfill(10)), output_filename = "full-submission.txt")
-    return tuple
-
-def download_n_clean(ciks):
+def download(ciks):
     """
     Download and clean filings for a collection of CIKs using multithreading.
 
@@ -48,7 +34,7 @@ def download_n_clean(ciks):
     errors = []
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {executor.submit(workerTasks, cik): cik for cik in ciks}
+        futures = {executor.submit(download_for_cik, cik): cik for cik in ciks}
 
         # as_completed lets them run in parallel; we consume results as they finish
         for idx, future in enumerate(as_completed(futures), start=1):
