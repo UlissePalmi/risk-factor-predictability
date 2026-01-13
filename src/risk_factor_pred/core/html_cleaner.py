@@ -1,4 +1,4 @@
-from risk_factor_pred.config import SEC_DIR
+from risk_factor_pred.config import RAW_EDGAR_DIR, INTERIM_CLEANED_DIR
 import re
 from typing import List
 import os
@@ -337,7 +337,7 @@ def clean_html(file_content):
 
     cleaned = strip_all_html_tags(cleaned)
     cleaned = remove_numeric_entities(cleaned)
-    cleaned = soft_unwrap_html_lines(cleaned)
+    #cleaned = soft_unwrap_html_lines(cleaned)
     cleaned = break_on_item_heads(cleaned)
     cleaned = clean_lines(cleaned)
     return cleaned
@@ -476,13 +476,12 @@ def merge_item_number_with_suffix(text: str) -> str:
 #                                              MERGES THE FUNCTIONS
 # --------------------------------------------------------------------------------------------------------------------
 
-def print_10X(full_path, html_content, output_filename):
+def print_10X(SAVE_path, html_content):
     """
     Write cleaned filing text to disk.
     """
-    with open(full_path, "w", encoding='utf-8') as new_file:
+    with open(SAVE_path, "w", encoding='utf-8') as new_file:
         new_file.write(html_content)
-    print("\nCleaned content saved in {}".format(output_filename))
 
 def cleaner(cik, output_filename):
     """
@@ -495,11 +494,19 @@ def cleaner(cik, output_filename):
       - runs HTML cleaning + item-heading normalization,
       - writes the cleaned text to `output_filename` inside each filing directory.
     """
-    folders_path = SEC_DIR / cik / "10-K"
-    for p in folders_path.iterdir():
-        print(p)
-        full_path = os.path.join(p, output_filename)
-        html_content = print_clean_txt(full_path)                    # html removal
-        html_content = cleaning_items(html_content)
-        print_10X(full_path, html_content, output_filename)
+    folders_path = RAW_EDGAR_DIR / cik / "10-K"
+    dst_root = INTERIM_CLEANED_DIR / cik / "10-K"
+    for acc_dir in folders_path.iterdir():
+        print(acc_dir.name)
+
+        src_file = acc_dir / output_filename
+        html_content = cleaning_items(print_clean_txt(src_file))
+
+        dst_dir = dst_root / acc_dir.name
+        dst_dir.mkdir(parents=True, exist_ok=True)
+
+        dst_file = dst_dir / output_filename
+        print(f"save path: {dst_file}")
+
+        print_10X(dst_file, html_content)
     return

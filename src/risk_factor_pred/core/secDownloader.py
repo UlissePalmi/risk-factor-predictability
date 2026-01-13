@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from risk_factor_pred.config import FORM, START_DATE, MAX_WORKERS, HTML_DIR
+from risk_factor_pred.config import FORM, START_DATE, MAX_WORKERS, RAW_DIR
 import time
 from . import html_cleaner
 from sec_edgar_downloader import Downloader
@@ -9,7 +9,7 @@ def download_for_cik(cik: str):
     Download SEC filings for a given CIK using `sec-edgar-downloader`.
     """
     time.sleep(0.1)
-    dl = Downloader("MyCompanyName", "my.email@domain.com", str(HTML_DIR))
+    dl = Downloader("MyCompanyName", "my.email@domain.com", str(RAW_DIR))
     print(f"Starting {FORM} for CIK {cik}")
     try:
         dl.get(FORM, cik, after=START_DATE)
@@ -30,7 +30,7 @@ def workerTasks(cik):
       3) invoke the HTML cleaning routine to produce a cleaned text file.
     """
     tuple = download_for_cik(cik)
-    html_cleaner.cleaner(str(cik.zfill(10)), output_filename = "full-submission.txt")
+    #html_cleaner.cleaner(str(cik.zfill(10)), output_filename = "full-submission.txt")
     return tuple
 
 def download_n_clean(ciks):

@@ -1,6 +1,6 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from nltk.sentiment import SentimentIntensityAnalyzer
-from risk_factor_pred.config import SEC_DIR, MAX_WORKERS
+from risk_factor_pred.config import INTERIM_ITEM1A_DIR, MAX_WORKERS, INTERIM_CLEANED_DIR
 import nltk
 import sys
 import re
@@ -20,6 +20,7 @@ def check_date(folder):
     line-by-line and searches for: <filing_id>: YYYYMMDD. When it finds a matching line,
     it parses the portion after ':' and returns a dictionary with date information 
     """
+    print(folder)
     filing = folder.name
     file = folder / "full-submission.txt"
     with open(file, "r", encoding="utf-8", errors="replace") as f:
@@ -66,9 +67,16 @@ def make_comps(cik):
     Returns list[dict]
     """
     date_data = []
-    folders_path = SEC_DIR / cik / "10-K"
+    folders_path = INTERIM_ITEM1A_DIR / cik / "10-K"
+    checkdate_path = INTERIM_CLEANED_DIR / cik / "10-K"
+    
     for i in folders_path.iterdir():
-        date_data.append(check_date(i) if (i / "item1A.txt").is_file() else None) 
+        print("sono qui")
+    
+    
+        date_data.append(check_date(checkdate_path / i.name) if (i / "item1A.txt").is_file() else None) 
+    
+    
     ordered_filings = order_filings(date_data)
 
     comps_list = []
@@ -121,8 +129,8 @@ def process_comps(comp, cik):
     """
     
     filingNew, filingOld = comp["filing1"], comp["filing2"]
-    fileNew = SEC_DIR / cik / "10-K" / filingNew / "item1A.txt"
-    fileOld = SEC_DIR / cik / "10-K" / filingOld / "item1A.txt"
+    fileNew = INTERIM_ITEM1A_DIR / cik / "10-K" / filingNew / "item1A.txt"
+    fileOld = INTERIM_ITEM1A_DIR / cik / "10-K" / filingOld / "item1A.txt"
     textNew = fileNew.read_text(encoding="utf-8", errors="ignore")
     textOld = fileOld.read_text(encoding="utf-8", errors="ignore")
     return min_edit_similarity(textNew, textOld, comp, cik)

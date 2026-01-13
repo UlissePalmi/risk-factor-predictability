@@ -1,6 +1,8 @@
-from risk_factor_pred.core import cik_list_builder as cl, secDownloader as sd, item_splitter as si, similarity as sm
+from risk_factor_pred.core import secDownloader as sd, item_splitter as si, similarity as sm
 from risk_factor_pred.config import CIK_LIST, SIMILARITY_FIELDS, SIMILARITY_DIR
 import csv
+
+from risk_factor_pred.edgar import cik_index as cl
 
 # folder.file inside files with functions
 if __name__ == "__main__":

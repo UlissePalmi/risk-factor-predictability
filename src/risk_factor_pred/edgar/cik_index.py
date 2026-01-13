@@ -1,4 +1,4 @@
-from risk_factor_pred.config import CIK_LIST, TABLES_DIR
+from risk_factor_pred.config import CIK_LIST, RAW_CIKS_DIR
 import pandas as pd
 import requests
 
@@ -6,10 +6,6 @@ def load_unique_ciks():
     """
     Load a list of CIKs from the Excel file specified in `CIK_LIST`.
     """
-    if not CIK_LIST.exists():
-        print("Attention! cik_list.csv not downloaded yet.")
-        print("Starting cik_list.csv file generation... ")
-        cik_list_builder(start_year = 2006 , end_year = 2026)
     df = pd.read_csv(CIK_LIST)
     ciks = df["CIK"].astype(str).str.strip()
     return ciks.tolist()
@@ -82,5 +78,5 @@ def cik_list_builder(start_year, end_year):
     # Keep only the first row of each consecutive block of equal CIKs
     mask = cik_df["CIK"].astype(str).shift() != cik_df["CIK"].astype(str)
 
-    CIK_LIST = TABLES_DIR / f"cik_list.csv"
+    CIK_LIST = RAW_CIKS_DIR / "cik_list.csv"
     cik_df[mask].to_csv(CIK_LIST, index=False)

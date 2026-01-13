@@ -1,6 +1,7 @@
-import wrds
+from risk_factor_pred.config import CIK_LIST, TABLES_DIR, INTERIM_RETURNS_DIR
 import pandas as pd
-from risk_factor_pred.config import CIK_LIST, TABLES_DIR
+from sqlalchemy import text
+import wrds
 
 def querymaker(cik):
     query = f"""
@@ -29,24 +30,27 @@ def querymaker(cik):
     return query
 
 # Creates returns.csv file
-SAVE_DIR = TABLES_DIR / "returns.csv"
+SAVE_DIR = INTERIM_RETURNS_DIR / "returns.csv"
 
 # 1. Connect
 db = wrds.Connection(wrds_username='username')
 
+
 df_input = pd.read_csv(CIK_LIST)
 ciks = df_input['CIK'].astype(str).str.zfill(10).tolist()
-
+ciks = ['0000000020']
 dfs = []
 
 for cik in ciks:
     query = querymaker(cik)
     try:
-        df = db.raw_sql(query)
+        with db.engine.connect() as conn:
+            df = pd.read_sql_query(text(query), conn)
+
         dfs.append(df)
         print(f"{cik}: ok ({len(df)} rows)")
     except Exception as e:
         print(f"{cik}: error: {e}")
 
 df_all = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-df_all.to_csv(SAVE_DIR)
+df_all.to_csv(SAVE_DIR, index=False)

@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple, Optional
 from concurrent.futures import ProcessPoolExecutor
-from risk_factor_pred.config import SEC_DIR, MAX_WORKERS
+from risk_factor_pred.config import INTERIM_CLEANED_DIR, MAX_WORKERS, INTERIM_ITEM1A_DIR
 from itertools import islice
 import re
 import time
@@ -91,7 +91,6 @@ def number_of_rounds(item_dict, bool):
     if bool == True:
         return len(rounds)
     else:
-        print(listAllItems)
         return listAllItems
 
 def table_content_builder(filepath):
@@ -141,7 +140,6 @@ def item_segmentation_list(filepath):
     # ----- Choose candidate with greatest character span -----
 
     if len(list_lines) == 1:
-        print(list_lines[0])
         return list_lines[0]
 
     with open(filepath, "r", encoding="utf-8", errors="replace") as f:
@@ -176,7 +174,6 @@ def item_segmentation_list(filepath):
             best_span = span_chars
             best_i = i
     
-    print(list_lines[best_i])
     return list_lines[best_i]
 
 def print_items(cik):
@@ -197,26 +194,33 @@ def print_items(cik):
         Output directory where item files will be written (typically the filing folder).
     """
     try:
-        path = SEC_DIR / cik / '10-K'
+        path = INTERIM_CLEANED_DIR / cik / '10-K'
         for filing in path.iterdir():
             p = path / filing
             filepath = p / "full-submission.txt"
             item_segmentation = item_segmentation_list(filepath)
-            page_list = [i['item_line'] for i in item_segmentation]
-            page_list.append(11849)
 
-            for n, i in enumerate(item_segmentation):
-                start, end = page_list[n], page_list[n+1]
-                with filepath.open("r", encoding="utf-8", errors="replace") as f:
-                    lines = list(islice(f, start - 1, end-1))
-                chunk = "".join(lines)
-                filename = f"item{i['item_num']}.txt"
+            # Find the position of item 1A in the list[dict]
+            idx_1a = next((i for i, d in enumerate(item_segmentation) if d.get("item_num") == "1A"), None)
+            
+            if idx_1a is None:
+                continue
 
-                full_path = p / filename
-                with open(full_path, "w", encoding='utf-8') as f:
-                    f.write(chunk)
+            item1a_seg = item_segmentation[idx_1a : idx_1a + 2]
+            page_list = [i['item_line'] for i in item1a_seg]
+
+            with filepath.open("r", encoding="utf-8", errors="replace") as f:
+                lines = list(islice(f, page_list[0] - 1, page_list[1]-1))
+            chunk = "".join(lines)
+
+            dst_path = INTERIM_ITEM1A_DIR / cik / '10-K' / filing.name
+            dst_path.mkdir(parents=True, exist_ok=True)
+
+            dst_file = dst_path / "item1A.txt"
+
+            with open(dst_file, "w", encoding='utf-8') as f:
+                f.write(chunk)
             print("okkkkk")
-            time.sleep(0.5)
     except:
         print("failed")
     return
