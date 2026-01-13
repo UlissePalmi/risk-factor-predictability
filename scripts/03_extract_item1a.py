@@ -1,5 +1,5 @@
 from risk_factor_pred.config import INTERIM_CLEANED_DIR
-from risk_factor_pred.core import item_splitter as si
+from risk_factor_pred.text import segment as si
 from risk_factor_pred.edgar import cik_index as cl
 
 

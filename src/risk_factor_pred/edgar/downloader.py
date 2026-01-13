@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from risk_factor_pred.config import FORM, START_DATE, MAX_WORKERS, RAW_DIR
 import time
-from . import html_cleaner
+from ..text import clean
 from sec_edgar_downloader import Downloader
 
 def download_for_cik(cik: str):

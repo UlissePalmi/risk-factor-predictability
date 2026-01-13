@@ -32,7 +32,9 @@ TABLES_DIR = DATA_DIR / "tables"
 
 CIK_LIST = RAW_CIKS_DIR / "cik_list.csv"                                     # Csv containing list of CIKS
 
-SIMILARITY_DIR = INTERIM_FEATURES_DIR / "similarity.csv"
+SIMILARITY_FILE = INTERIM_FEATURES_DIR / "similarity.csv"
+RETURNS_FILE = INTERIM_RETURNS_DIR / "returns.csv"
+FINAL_DATASET = PROCESSED_PANEL_PATH / "final_dataset.csv"
 
 # ---------- SETTINGS ----------
 FORM       = "10-K"                                                 # or "10-K", "10-KT", etc.
@@ -50,7 +52,7 @@ def ensure_project_dirs() -> None:
         INTERIM_FEATURES_DIR,
         INTERIM_RETURNS_DIR,
 
-        PROCESSED_DIR,
+        PROCESSED_PANEL_PATH,
         
         OUTPUTS_TABLES_DIR,
         OUTPUTS_FIGURES_DIR,

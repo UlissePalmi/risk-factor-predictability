@@ -1,4 +1,4 @@
-from risk_factor_pred.core import secDownloader as sd
+from risk_factor_pred.edgar import downloader as sd
 from risk_factor_pred.edgar import cik_index as cl
 
 if __name__ == "__main__":

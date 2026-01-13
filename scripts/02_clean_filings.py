@@ -1,4 +1,4 @@
-from risk_factor_pred.core import html_cleaner as hc
+from risk_factor_pred.text import clean as hc
 from risk_factor_pred.config import RAW_EDGAR_DIR
 from risk_factor_pred.edgar import cik_index as cl
 
