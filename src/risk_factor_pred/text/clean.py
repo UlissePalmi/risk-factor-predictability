@@ -1,6 +1,6 @@
 from risk_factor_pred.config import RAW_EDGAR_DIR, INTERIM_CLEANED_DIR, MAX_WORKERS
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
 
 # --------------------------------------------------------------------------------------------------------------------
 #                                              REGEX FOR HTML CLEANING
@@ -156,13 +156,13 @@ def loop_clean(html_content):
 
     return html_content
 
-def remove_numeric_entities(s: str) -> str:
+def remove_numeric_entities(s):
     """
     Remove numeric HTML entities such as '&#123;' or '&#x1F4A9;'.
     """
     return re.sub(r'&#(?:\d{1,8}|[xX][0-9A-Fa-f]{1,8});', '', s)
 
-def unwrap_tags(html_content): # Removes matching <ix...> and </ix...> tags but keeps the content between them.
+def unwrap_tags(html_content):
     """
     This function removes/replaces a set of tags commonly found in SEC filings,
     inserting newlines for structural tags and deleting closing tags. It also
@@ -230,14 +230,14 @@ def unwrap_tags(html_content): # Removes matching <ix...> and </ix...> tags but 
 
     return html_content
 
-def clean_lines(text_content): # Removes all lines that are empty/contain only whitespace and removes leading whitespace from the remaining lines
+def clean_lines(text_content):
     """
     Drop empty lines and removes all leading and trailing whitespace.
     """
     cleaned_lines = [line.lstrip() for line in text_content.splitlines() if line.strip()]
     return '\n'.join(cleaned_lines)
 
-def prepend_newline_to_p(html_content): # Finds every <p> tag and inserts a newline character before it
+def prepend_newline_to_p(html_content):
     """
     Insert a newline before every <p ...> tag to improve downstream line-based parsing.
     """
@@ -245,7 +245,7 @@ def prepend_newline_to_p(html_content): # Finds every <p> tag and inserts a newl
     processed_text = re.sub(pattern, r'\n\g<0>', html_content)    
     return processed_text
 
-def strip_all_html_tags(html_content): # Removes all HTML tags from a string.
+def strip_all_html_tags(html_content):
     """
     Remove all HTML tags by deleting substrings matching '<...>'.
     """
@@ -253,7 +253,7 @@ def strip_all_html_tags(html_content): # Removes all HTML tags from a string.
     clean_text = re.sub(pattern, '', html_content)
     return clean_text
 
-def remove_xbrli_measure(html_content): # Uses regex to find and remove the entire <xbrli:measure> ... </xbrli:measure> block.
+def remove_xbrli_measure(html_content):
     """
     Remove <xbrli:*>...</xbrli:*> blocks (e.g., <xbrli:measure>...</xbrli:measure>).
     """
@@ -261,7 +261,7 @@ def remove_xbrli_measure(html_content): # Uses regex to find and remove the enti
     html_content = re.sub(pattern, '', html_content)
     return html_content
 
-def get_from_sec_document(html_content: str) -> str:
+def get_from_sec_document(html_content):
     """
     Trim content to start at the <SEC-DOCUMENT> marker if present.
     """
@@ -277,7 +277,7 @@ def get_content_before_sequence(html_content):
     match = re.search(pattern, html_content)
     return match.group() if match else html_content
 
-def break_on_item_heads(text: str) -> str:
+def break_on_item_heads(text):
     """
     Insert a newline before detected 'Item <number>[suffix].' headings
     or 'Item <number> [text] <number>.
@@ -309,7 +309,7 @@ def break_on_item_heads(text: str) -> str:
             out.append('\n')
             last = start
     out.append(text[last:])
-    s = ''.join(out)                     # <-- join the list!
+    s = ''.join(out)
     return re.sub(r'[ \t]+\n', '\n', s)  # tidy spaces before newlines
 
 def clean_html(file_content):
@@ -319,7 +319,7 @@ def clean_html(file_content):
     cleaned = soft_unwrap_html_lines(file_content)
     cleaned = get_from_sec_document(cleaned)
     
-    cleaned = get_content_before_sequence(cleaned)                          # cuts after <SEQUENCE>2
+    cleaned = get_content_before_sequence(cleaned)
     cleaned = remove_head_with_regex(cleaned)
     
     cleaned = remove_style_with_regex(cleaned)
@@ -327,10 +327,10 @@ def clean_html(file_content):
     cleaned = remove_align_with_regex(cleaned)
     
     cleaned = remove_part_1(cleaned)
-    cleaned = unwrap_tags(cleaned)                                          # Removes useless tags
+    cleaned = unwrap_tags(cleaned)
     cleaned = remove_xbrli_measure(cleaned)
     
-    cleaned = loop_clean(cleaned)                                           # LOOP : empty tags
+    cleaned = loop_clean(cleaned)
 
     cleaned = prepend_newline_to_p(cleaned)
 
@@ -366,7 +366,7 @@ def cleaning_items(html_content):
     html_content = merge_item_with_number_line(html_content)
     return merge_item_number_with_suffix(html_content)
 
-def merge_I_tem(content: str) -> str: # Finds lines with 'I' & next line starts with 'tem' then merge them
+def merge_I_tem(content):
     """
     Merge cases where 'I' appears alone on a line and the next line starts with 'tem'.
 
@@ -375,18 +375,18 @@ def merge_I_tem(content: str) -> str: # Finds lines with 'I' & next line starts 
       Line i+1: "tem 1. Business"
       -> "Item 1. Business"
     """
-    lines = content.splitlines()  # split into lines without keeping '\n'
+    lines = content.splitlines()
     new_lines = []
     i = 0
 
     while i < len(lines):
-        # Make sure there *is* a next line to look at
+        # Make sure there is a next line to look at
         if (
             lines[i].strip() == "I" and
             i + 1 < len(lines) and
             lines[i + 1].lstrip().startswith("tem")
         ):
-            merged_line = "I" + lines[i + 1].lstrip()  # e.g. "Item 1. ..."
+            merged_line = "I" + lines[i + 1].lstrip()
             new_lines.append(merged_line)
             i += 2  # skip the next line because we've merged it
         else:
@@ -394,7 +394,7 @@ def merge_I_tem(content: str) -> str: # Finds lines with 'I' & next line starts 
             i += 1
     return "\n".join(new_lines)
 
-def ensure_space_after_item(text: str) -> str:
+def ensure_space_after_item(text):
     """
     Ensure 'Item' or 'Items' is followed by a space when immediately followed by non-space.
 
@@ -403,7 +403,7 @@ def ensure_space_after_item(text: str) -> str:
     """
     return re.sub(r'\b(Items?)\b(?=\S)', r'\1 ', text)
 
-def merge_item_with_number_line(text: str) -> str:
+def merge_item_with_number_line(text):
     """
     Merge lines where 'Item'/'Items' is on its own line and the next line begins with a digit.
 
@@ -439,7 +439,7 @@ def merge_item_with_number_line(text: str) -> str:
 
     return "\n".join(new_lines)
 
-def merge_item_number_with_suffix(text: str) -> str:
+def merge_item_number_with_suffix(text):
     """
     If a line is 'Item {number}' only, and the following line starts with either:
       - a single letter and a dot (e.g., 'A. Risk Factors')
@@ -483,28 +483,33 @@ def print_10X(SAVE_path, html_content):
 
 
 def clean_worker(ciks):
+    """
+    Run the filing cleaning step in parallel across a list of CIKs.
+
+    Uses a thread pool to call `cleaner()` on each CIK.
+    """
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        for _ in executor.map(cleaner, ciks):
-            pass
+        futures = {executor.submit(cleaner, cik): cik for cik in ciks}
+
+        for fut in as_completed(futures):
+            cik = futures[fut]
+            try:
+                fut.result()
+            except Exception as e:
+                print(f"[FAILED] {cik}: {type(e).__name__} - {e}")
 
 def cleaner(cik):
     """
-    Clean all downloaded 10-K filings for a given CIK folder and write outputs.
+    Clean raw 10-K filings for a single CIK and save cleaned text files.
 
-    This function:
-      - locates the 10-K folder under SEC_DIR/<ticker>/10-K,
-      - iterates over subdirectories (each filing),
-      - reads 'full-submission.txt',
-      - runs HTML cleaning + item-heading normalization,
-      - writes the cleaned text to `output_filename` inside each filing directory.
+    Iterates over accession folders in `RAW_EDGAR_DIR`, applies text cleaning,
+    and writes outputs to the corresponding path under `INTERIM_CLEANED_DIR`.
     """
     try:
         output_filename = "full-submission.txt"
         folders_path = RAW_EDGAR_DIR / cik / "10-K"
         dst_root = INTERIM_CLEANED_DIR / cik / "10-K"
         for acc_dir in folders_path.iterdir():
-            print(acc_dir.name)
-
             src_file = acc_dir / output_filename
             html_content = cleaning_items(print_clean_txt(src_file))
 

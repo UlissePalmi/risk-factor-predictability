@@ -1,9 +1,7 @@
-from typing import List, Dict, Tuple, Optional
 from concurrent.futures import ProcessPoolExecutor
 from risk_factor_pred.config import INTERIM_CLEANED_DIR, MAX_WORKERS, INTERIM_ITEM1A_DIR
 from itertools import islice
 import re
-import time
 
 def _normalize_ws(s: str) -> str:
     """
@@ -29,8 +27,6 @@ def item_dict_builder(path):
     'Item 1.', 'Item 1A.', etc., and returns a list of dictionaries containing:
       - item_num: normalized item token (e.g., "1", "1A")
       - item_line: 1-indexed line number where the heading appears
-        # Change to length of words/char post 'Item <num>.'
-        # Must add 'Item <num> and <num>.'
     Consecutive duplicate item tokens are removed (deduped) to reduce noise.
     """
 
@@ -178,20 +174,10 @@ def item_segmentation_list(filepath):
 
 def print_items(cik):
     """
-    Write per-item text files by slicing the input document between detected item headings.
+    Extract and save Item 1A text for all cleaned 10-K filings for a single CIK.
 
-    For each entry in `final_split`, this function:
-      - takes the line range from its `line_no` to the next item heading's `line_no`,
-      - writes the extracted chunk to `p/item<ITEM>.txt` (e.g., item1A.txt).
-
-    Parameters
-    ----------
-    filepath : pathlib.Path
-        Path to the full cleaned filing text (e.g., clean-full-submission.txt).
-    final_split : list[dict]
-        Selected sequence of headings (output of `final_list`), containing 'item_n' and 'line_no'.
-    p : pathlib.Path
-        Output directory where item files will be written (typically the filing folder).
+    Locates the Item 1A section using detected item headings and writes `item1A.txt`
+    to the corresponding folder under `INTERIM_ITEM1A_DIR`.
     """
     try:
         path = INTERIM_CLEANED_DIR / cik / '10-K'
@@ -227,7 +213,7 @@ def print_items(cik):
 
 def try_exercize(ciks: list):
     """
-        Runs print_items in parallel
+    Runs print_items in parallel
     """
     with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
         list(executor.map(print_items, ciks))

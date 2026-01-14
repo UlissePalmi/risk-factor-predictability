@@ -5,6 +5,11 @@ import wrds
 
 
 def querymaker(cik):
+    """
+    Build the WRDS SQL query to pull monthly CRSP returns for a single CIK.
+
+    Returns a query string filtered to common link types and a fixed date range.
+    """
     query = f"""
     SELECT 
         c.cik, 
@@ -31,6 +36,12 @@ def querymaker(cik):
     return query
 
 def df_with_returns():
+    """
+    Download and combine monthly return data for all CIK folders in `INTERIM_ITEM1A_DIR`.
+
+    For each CIK, runs the WRDS query, keeps (cik, date, ret), and concatenates results
+    into a single dataframe.
+    """
     db = wrds.Connection(wrds_username='username')
     ciks = [p.name for p in INTERIM_ITEM1A_DIR.iterdir()]
     dfs = []

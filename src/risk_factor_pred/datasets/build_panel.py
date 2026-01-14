@@ -1,7 +1,11 @@
-from risk_factor_pred.config import SIMILARITY_FILE, FINAL_DATASET, RETURNS_FILE
 import pandas as pd
 
 def datatype_setup(sim_df, return_df):
+    """
+    Convert date columns to datetime and create gross returns (`retPlusOne`).
+    """
+    
+    print(sim_df)
     sim_df["date_a"] = pd.to_datetime(sim_df["date_a"],format="mixed",dayfirst=True)
     sim_df["date_b"] = pd.to_datetime(sim_df["date_b"],format="mixed",dayfirst=True)
     return_df["date"] = pd.to_datetime(return_df["date"])
@@ -10,6 +14,10 @@ def datatype_setup(sim_df, return_df):
     return sim_df, return_df
 
 def merge_return(sim_df, return_df, months, period):
+    """
+    Merge feature rows with returns and compute window returns (past or future)
+    over a `months` horizon, compounding `retPlusOne` within the window.
+    """
     if period == 'future':
         sim_df["start_anchor"] = (sim_df["date_a"] + pd.offsets.MonthBegin(1)).dt.normalize()
         sim_df["end_anchor"]   = sim_df["start_anchor"] + pd.offsets.DateOffset(months=months)
@@ -25,7 +33,7 @@ def merge_return(sim_df, return_df, months, period):
     return_df["cik"] = (return_df["cik"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(10))
 
     # Merge sim_df with returns on firm identifier
-    merged = sim_df.merge(
+    merged = sim_df.merge(  
         return_df[["cik", "date", "retPlusOne"]],
         on="cik",
         how="left"

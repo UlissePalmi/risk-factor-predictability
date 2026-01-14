@@ -1,4 +1,4 @@
-from risk_factor_pred.config import ensure_project_dirs, RAW_EDGAR_DIR, INTERIM_CLEANED_DIR, SIMILARITY_FIELDS, SIMILARITY_FILE, INTERIM_ITEM1A_DIR, FINAL_DATASET, RETURNS_FILE, CIK_LIST
+from risk_factor_pred.config import ensure_project_dirs, RAW_EDGAR_DIR, INTERIM_CLEANED_DIR, FEATURES_FIELDS, FEATURES_FILE, INTERIM_ITEM1A_DIR, FINAL_DATASET, RETURNS_FILE, CIK_LIST
 from risk_factor_pred.edgar import cik_index as cl, downloader as sd
 from risk_factor_pred.text import clean as hc, segment as si, tokenize as sm
 from risk_factor_pred.wrds import crsp_returns as cr
@@ -15,14 +15,14 @@ def _digits_only(x: str) -> str:
 
 def _resolve_cik_dirs(base_dir: Path, ciks: Optional[Iterable[str]]) -> List[str]:
     """
-    Resolve a list of CIK directory names under base_dir.
+    Resolve which CIK directory names to process under `base_dir`.
     - If ciks is None: return all subdirectory names.
     - If provided: try both padded/unpadded representations and pick the one that exists.
     """
     if ciks is None:
         return sorted([p.name for p in base_dir.iterdir() if p.is_dir()])
-
-    resolved: List[str] = []
+    print(ciks)
+    resolved = []
     for cik in ciks:
         raw = str(cik).strip()
         digits = _digits_only(raw)
@@ -44,9 +44,15 @@ def _resolve_cik_dirs(base_dir: Path, ciks: Optional[Iterable[str]]) -> List[str
             picked = digits.zfill(10) if digits else raw
 
         resolved.append(picked)
-        return resolved
+    return resolved
     
 def _parse_args():
+    """
+    Parse CLI arguments for running the end-to-end pipeline.
+
+    Supports selecting a single CIK or a comma-separated list, year range,
+    and a step interval to run.
+    """
     p = argparse.ArgumentParser(
         description="Reproduce the full risk-factor predictability pipeline."
     )
@@ -64,6 +70,11 @@ def _parse_args():
     return p.parse_args()
 
 def step_00_build_universe(start_year: int = 2006 , end_year: int = 2026) -> None:
+    """
+    Create the CIK universe used for the pipeline.
+
+    Builds `cik_list.csv` from SEC index files if it does not already exist.
+    """
     ensure_project_dirs()
     print("Starting cik_list.csv file generation... ")
     if not CIK_LIST.exists():
@@ -72,48 +83,81 @@ def step_00_build_universe(start_year: int = 2006 , end_year: int = 2026) -> Non
         print("CIK_LIST already exists")
 
 def step_01_download_filings(ciks: Optional[Iterable[str]] = None):
-    # Default: use cik_list.csv
+    """
+    Download raw SEC filings for the requested CIKs.
+
+    If `ciks` is None, uses the full universe from `cik_list.csv`.
+    """
     if ciks is None:
         ciks = cl.load_unique_ciks()
     sd.download(ciks)
 
 def step_02_clean_filings(ciks: Optional[Iterable[str]] = None) -> None:
-    # Default: clean everything present in raw download folder
+    """
+    Clean downloaded SEC filings into standardized text files.
+
+    If `ciks` is None, processes all CIK folders found in the raw directory.
+    """
+    print(ciks)
     ciks_dirs = _resolve_cik_dirs(RAW_EDGAR_DIR, ciks)
     hc.clean_worker(ciks_dirs)
 
 def step_03_extract_item1a(ciks: Optional[Iterable[str]] = None) -> None:
-    # Default: extract Item 1A for everything present in cleaned folder
+    """
+    Extract Item 1A risk factor text from cleaned filings.
+
+    If `ciks` is None, processes all CIK folders found in the cleaned directory.
+    """
     ciks_dirs = _resolve_cik_dirs(INTERIM_CLEANED_DIR, ciks)
     si.try_exercize(ciks_dirs)
 
 def step_04_compute_features(ciks: Optional[Iterable[str]] = None) -> None:
-    # Default: compute features for everything present in Item 1A folder
+    """
+    Compute levenshtein/sentiment features from extracted Item 1A text.
+
+    Writes row-level results into `FEATURES_FILE`.
+    """
     ciks_dirs = _resolve_cik_dirs(INTERIM_ITEM1A_DIR, ciks)
 
-    with open(SIMILARITY_FILE, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=SIMILARITY_FIELDS)
+    with open(FEATURES_FILE, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=FEATURES_FIELDS)
         writer.writeheader()
         sm.concurrency_runner(writer, ciks_dirs)
     
 def step_05_pull_returns() -> None:
+    """
+    Pull monthly return data from WRDS/CRSP for the CIK universe.
+
+    Saves the combined return panel to `RETURNS_FILE`.
+    """
     return_df = cr.df_with_returns()
     return_df.to_csv(RETURNS_FILE, index=False)
 
 def step_06_build_panel() -> None:
-    sim_df, return_df = bp.datatype_setup(pd.read_csv(SIMILARITY_FILE), pd.read_csv(RETURNS_FILE))
+    """
+    Merge text features with returns to create the final modeling dataset.
 
+    Produces `FINAL_DATASET` with past/future window returns added.
+    """
+    sim_df, return_df = bp.datatype_setup(pd.read_csv(FEATURES_FILE), pd.read_csv(RETURNS_FILE))
+    print(sim_df)
     sim_df = bp.merge_return(sim_df, return_df, months=18, period="future")
     sim_df = bp.merge_return(sim_df, return_df, months=12, period="past")
-
+    
     sim_df.to_csv(FINAL_DATASET, index=False)
 
 def step_07_run_models() -> None:
+    """
+    Run the classification and regression models on the final dataset.
+
+    Trains the Random Forest models and prints evaluation output.
+    """
     df = pd.read_csv(FINAL_DATASET)
 
     df = rs.feature_engineering(df)
 
     df_cat, labels = rc.create_labels(df, prediction_col="future_18m_ret")
+    print(df_cat)
     X, y = rs.X_y_builder(df_cat)
     rc.rf_cat(X, y, labels)
 

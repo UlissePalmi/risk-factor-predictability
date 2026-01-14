@@ -2,7 +2,21 @@ import pandas as pd
 from risk_factor_pred.config import SEC_DIR, TABLES_DIR
 import re
 
+"""
+This script audits missing filing years in the features dataset.
+
+For each CIK folder under `SEC_DIR`, it extracts filing years from the accession
+folder names and compares them to the years covered by `features.csv`. Any
+filing years that are present on disk but missing from the features output
+are collected and saved to `missing_years.csv`.
+"""
+
 def find_year(pname):
+    """
+    Extract the filing year from a SEC accession string (YY in the middle field).
+
+    Converts two-digit years to a four-digit year using a 1970 cutoff rule.
+    """
     pattern = re.compile(r"^\d{10}-(\d{2})-\d{6}$")
     m = pattern.match(pname)
     yy = int(m.group(1))
@@ -11,12 +25,12 @@ def find_year(pname):
 
 df = pd.DataFrame(columns=['cik', 'year'])
 
-similarity_df = pd.read_csv(TABLES_DIR / 'similarity.csv')
-similarity_df['cik'] = similarity_df['cik'].astype(int).map(lambda n: f"{n:010d}")
+features_df = pd.read_csv(TABLES_DIR / 'features.csv')
+features_df['cik'] = features_df['cik'].astype(int).map(lambda n: f"{n:010d}")
 
 for path in SEC_DIR.iterdir():
     folder = path / "10-K"
-    cik_df = similarity_df[similarity_df['cik'] == path.name]
+    cik_df = features_df[features_df['cik'] == path.name]
     
     if cik_df.empty:
         years = [find_year(p.name) for p in folder.iterdir()]

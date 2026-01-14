@@ -1,7 +1,5 @@
 from risk_factor_pred.config import CIK_LIST, RAW_CIKS_DIR
-from risk_factor_pred.pipeline import steps
 import pandas as pd
-import argparse
 import requests
 
 def load_unique_ciks():
@@ -33,19 +31,19 @@ def inputLetter():
         letter = input("Invalid... enter L or T...").lower()
     return letter
 
-HEADERS = {
-    "User-Agent": "Ulisse upalmier@nd.edu",
-    "Accept-Encoding": "gzip, deflate",
-    "Connection": "keep-alive",
-}
-
 def load_master_to_dataframe(year: int, qtr: int) -> pd.DataFrame:
     """
     Download master.idx for a given year/quarter and return it as a DataFrame
-    with columns: CIK, Company Name, Form Type, Date Filed, Filename.
+    with columns: CIK, Company Name, Form Type.
     """
     url = f"https://www.sec.gov/Archives/edgar/full-index/{year}/QTR{qtr}/master.idx"
     
+    HEADERS = {
+    "User-Agent": "Name name@domain.com",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
+    }
+
     r = requests.get(url, headers=HEADERS, timeout=30)
     r.raise_for_status()
     text = r.text
@@ -76,6 +74,14 @@ def load_master_to_dataframe(year: int, qtr: int) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 def cik_list_builder(start_year, end_year):
+    """
+    Build and save a master list of unique 10-K CIKs over a range of years.
+
+    For each year in [start_year, end_year) and each quarter (1-4), the function
+    downloads the SEC `master.idx` index, filters for 10-K filings, concatenates
+    all results, removes duplicate CIKs, and writes the final list to
+    `RAW_CIKS_DIR / "cik_list.csv"`.
+    """
     cik_df = []
     for year in range(start_year, end_year):
         for qtr in range(1, 5):

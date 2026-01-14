@@ -14,13 +14,9 @@ _sia = SentimentIntensityAnalyzer()
 
 def check_date(folder):
     """
-    Finds the date the 10-K was released and returns a dict with "year", "month", "day" and "filing" keys
-    
-    The function reads the `SEC_DIR/<cik>/10-K/<filing_id>/full-submission.txt` file
-    line-by-line and searches for: <filing_id>: YYYYMMDD. When it finds a matching line,
-    it parses the portion after ':' and returns a dictionary with date information 
+    Read a filing folder and extract the submission date for that accession.
+    Returns a dict with "year", "month", "day", and "filing".
     """
-    print(folder)
     filing = folder.name
     file = folder / "full-submission.txt"
     with open(file, "r", encoding="utf-8", errors="replace") as f:
@@ -39,9 +35,8 @@ def check_date(folder):
 
 def order_filings(records):
     """
-    Receives a list of dict with filing_id and filing release date,
-    Sorts filings in reverse chronological order and returns a list
-    of lists containing filing_IDs and filing_date.
+    Sort filing records by release date (newest to oldest).
+    Returns a list of [filing_id, filing_date] pairs.
     """
     records_sorted = sorted(
         records,
@@ -58,24 +53,21 @@ def order_filings(records):
 
 def make_comps(cik):
     """
-    Prepare consecutive 10-K Item 1A comparison pairs for a given cik.
+    Build consecutive Item 1A comparison pairs for a single CIK.
 
-    The function scans SEC_DIR/<cik>/10-K/* and keeps only filings that
-    contain an extracted `item1A.txt`. It then orders filings by date and
-    constructs consecutive pairwise comparisons.
-
-    Returns list[dict]
+    Uses available `item1A.txt` filings, orders them by date, and returns
+    a list of {date1, filing1, date2, filing2} dicts.
     """
+    print(cik)
     date_data = []
     folders_path = INTERIM_ITEM1A_DIR / cik / "10-K"
     checkdate_path = INTERIM_CLEANED_DIR / cik / "10-K"
     
     for i in folders_path.iterdir():
-    
-    
+        if not (i / "item1A.txt").is_file():
+            continue
+
         date_data.append(check_date(checkdate_path / i.name) if (i / "item1A.txt").is_file() else None) 
-    
-    
     ordered_filings = order_filings(date_data)
 
     comps_list = []
@@ -86,22 +78,19 @@ def make_comps(cik):
             "date2": ordered_filings[n][1],
             "filing2": ordered_filings[n][0]
         })
-    
     return comps_list
 
 def concurrency_runner(writer, ciks):
     """
-    Compute similarity features for a CIK and write results using multiprocessing.
-
-    The function prepares consecutive filing by using the 'make_comps' function
-    then uses ProcessPoolExecutor to parallelize the similarity calculation across comparisons.
-    The resulting dictionaries are written via `writer.writerows(model)` on a csv file.
+    Compute Levenshtein edit distance features for multiple CIKs using multiprocessing.
+    Runs `worker()` per CIK and writes the resulting rows to the output CSV.
     """
     try:
         with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {executor.submit(worker, cik): cik for cik in ciks}
             
             for fut in as_completed(futures):
+                print(fut)
                 rows = fut.result()
                 writer.writerows(rows)
     except:
@@ -110,31 +99,31 @@ def concurrency_runner(writer, ciks):
 # ---------------------------------------------------------------------------------------
 
 def worker(cik):
+    """
+    Compute feature rows for all consecutive filing comparisons for a single CIK.
+    Returns a list of row dictionaries for writing to the output file.
+    """
     comps = make_comps(cik)
     rows = []
     [rows.append(process_comps(comp, cik)) for comp in comps]
+    print(rows)
     return rows
 
 
 def process_comps(comp, cik):
     """
-    Compute similarity metrics for a single consecutive filing comparison.
-
-    Loads `item1A.txt` for two filings (newer vs older) and computes token-level
-    Levenshtein distance, similarity, and sentiment statistics for newly introduced
-    words (relative to the older filing).
+    Load two Item 1A texts for a comparison pair and compute feature metrics.
+    Returns the output dictionary produced by `min_edit_levenshtein()`.
     """
-    
     filingNew, filingOld = comp["filing1"], comp["filing2"]
     fileNew = INTERIM_ITEM1A_DIR / cik / "10-K" / filingNew / "item1A.txt"
     fileOld = INTERIM_ITEM1A_DIR / cik / "10-K" / filingOld / "item1A.txt"
     textNew = fileNew.read_text(encoding="utf-8", errors="ignore")
     textOld = fileOld.read_text(encoding="utf-8", errors="ignore")
-    return min_edit_similarity(textNew, textOld, comp, cik)
-
+    return min_edit_levenshtein(textNew, textOld, comp, cik)
 
 # --------------------------------------------------------------------------------------------------------------------
-#                                                SIMILARITY FUNCTIONS
+#                                                VARIABLES FUNCTIONS
 # --------------------------------------------------------------------------------------------------------------------
 
 
@@ -147,47 +136,21 @@ def tokenize(text: str) -> list[str]:
 
 def mean_vader_compound(words) -> float:
     """
-    Average VADER sentimant score over a list of single-word strings.
-    Returns 0.0 for an empty list.
+    Compute the average VADER compound score over a list of words.
+    Returns 0.0 if the input list is empty.
     """
     compounds = []
     for w in words:
-        w = (w or "").strip()        # WWWWWWWHHHHHHHAAAAAATTTT?
+        w = (w or "").strip()
         scores = {"compound": 0.0} if not w else _sia.polarity_scores(w)
         compounds.append(scores["compound"])
     return sum(compounds) / len(compounds) if len(compounds) != 0 else 0
 
 def levenshtein_tokens(a_tokens, b_tokens, cik):
     """
-    Compute token-level Levenshtein edit distance using a two-row dynamic program.
-
-    Implements Wagner-Fischer (edit distance) over token sequences. For memory
-    efficiency, the function ensures the second sequence is the shorter one.
-
-    Parameters
-    ----------
-    a_tokens : list[str]
-        Tokens from document A (newer filing in your usage).
-    b_tokens : list[str]
-        Tokens from document B (older filing in your usage).
-    cik : str
-        Used only for progress printing.
-
-    Returns
-    -------
-    tuple[int, list[str]]
-        (distance, new_words) where:
-          - distance is the Levenshtein edit distance between token sequences,
-          - new_words are tokens present in `a_tokens` but not in `b_tokens`
-            (set difference, not edit-alignment-based).
-
-    Notes
-    -----
-    The progress printing should be driven by the i/j loop. In the current code,
-    `j` is referenced outside its loop and `new_words` computation is indented
-    inside the outer loop; this should be corrected for clarity and correctness.
+    Compute token-level Levenshtein distance and identify newly introduced tokens.
+    Returns (distance, new_words).
     """
-    # m, n, a_tokens, b_tokens = n, m, b_tokens, a_tokens if n > m else None
     m, n = len(a_tokens), len(b_tokens)
     if n > m:
         # ensure n <= m for memory efficiency
@@ -221,42 +184,19 @@ def levenshtein_tokens(a_tokens, b_tokens, cik):
     return prev[n], new_words
 
 def jaccard_similarity(text_a: str, text_b: str) -> float:
+    """
+    Compute Jaccard similarity between the token sets of two texts.
+    """
     A = set(tokenize(text_a))
     B = set(tokenize(text_b))
     if not A and not B:
         return 1.0
     return len(A & B) / len(A | B)
 
-def min_edit_similarity(text_a: str, text_b: str, dict, cik):
+def min_edit_levenshtein(text_a: str, text_b: str, dict, cik):
     """
-    Compute disclosure-change features from two texts using edit distance and sentiment.
-
-    Steps:
-      1) tokenize both texts,
-      2) compute token-level Levenshtein distance,
-      3) convert distance into a normalized similarity score:
-           similarity = 1 - dist / (len(A) + len(B)),
-      4) identify tokens in A not present in B and compute their mean VADER sentiment.
-
-    Parameters
-    ----------
-    text_a : str
-        Newer period text (Item 1A).
-    text_b : str
-        Older period text (Item 1A).
-    dict : dict
-        Metadata dict containing "date1" and "date2".
-    cik : str
-        Firm identifier, stored in output and used for progress printing.
-
-    Returns
-    -------
-    dict
-        Dictionary containing:
-          - cik, date_a, date_b,
-          - distance (int), similarity (float),
-          - len_a, len_b (token counts),
-          - sentiment (float): mean compound score of newly introduced words.
+    Compute disclosure-change features between two Item 1A texts.
+    Returns a dictionary with levenshtein, lengths, and sentiment of newly added words.
     """
     A, B = tokenize(text_a), tokenize(text_b)
     dist, new_words = levenshtein_tokens(A, B, cik)

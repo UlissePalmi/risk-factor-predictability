@@ -4,6 +4,12 @@ from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 
 def rf_reg(X, y, df):
+    """
+    Train and evaluate a Random Forest regressor to predict future returns.
+
+    Fits the model on a train/test split, prints MAE/RMSE/R², and writes full-sample
+    predictions to `pred_check.csv` for inspection.
+    """
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.20, shuffle=True, random_state=42
     )

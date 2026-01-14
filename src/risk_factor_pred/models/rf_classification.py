@@ -5,7 +5,10 @@ import pandas as pd
 
 def create_labels(df, prediction_col):
     """
-    Create 5 classes from ret_18 (very_negative ... very_positive)
+    Create 5 return-based classes using quintiles of `prediction_col`.
+
+    Adds a categorical `prediction` column and returns the updated dataframe
+    along with the ordered class labels.
     """
     labels = [
         "very_negative",
@@ -24,6 +27,12 @@ def create_labels(df, prediction_col):
 
 
 def rf_cat(X, y, labels):
+    """
+    Train and evaluate a Random Forest classifier for multi-class return labels.
+
+    Splits the data into train/test sets, fits the model, prints performance
+    metrics, and reports feature importances.
+    """
     X_train, X_test, y_train, y_test = train_test_split(
         X,
         y,

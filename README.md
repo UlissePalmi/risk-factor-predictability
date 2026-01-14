@@ -1,14 +1,30 @@
 # Risk Factor Predictability
 
-This repository provides an end-to-end research pipeline that measures how firms’ 10-K **Risk Factors (Item 1A)** change over time and tests whether those disclosure changes predict stock returns.
+This repository builds a panel dataset of 10-K Item 1A risk factor disclosure changes and tests whether disclosure change features predict future returns using Random Forest regression and classification.
+
+The project runs as a step-based pipeline, from constructing a CIK universe and downloading SEC filings, to text extraction, feature computation, return merging, panel construction, and model estimation.
 
 ## What the pipeline does
 
-1. **Download**: download 10-K filings from SEC EDGAR and store them locally
-2. **Parse & clean**: clean and normalize the entire filing, split it into sections, and isolate Item 1A: Risk Factors for feature construction
-3. **Disclosure comparison**: compute firm-level year-over-year similarity by comparing each firm’s consecutive Item 1A sections
-4. **Dataset build**: merge disclosure-change features with return data to create a model ready panel
-5. **Modeling**: run baseline predictive models and evaluation to quantify whether disclosure changes contain incremental predictive information
+0. Finds list of CIK from SEC website
+1. **Download**: downloads historical 10-K filings from SEC EDGAR and store them locally
+2. **Clean**: cleans raw filings into consistent text
+3. **Extract Item 1A**: splits filings into sections, extracts Item 1A sections for feature construction
+4. **Feature Engineering**: computes firm-level year-over-year disclosure-change features by comparing each firm’s consecutive Item 1A sections
+5. **Retreives Returns**: retrieves monthly stock returns from wrds database
+6. **Dataset build**: merges disclosure-change features with return data to create a model ready panel
+7. **Modeling**: runs baseline predictive models and evaluation to quantify whether disclosure changes contain incremental predictive information
+
+
+## Project structure (high-level)
+
+risk_factor_pred/
+  edgar/ — SEC index + filing download utilities
+  pipeline/steps.py — step definitions for the full pipeline
+  model/ modules (RF setup, regression, classification)
+  config.py — project directories, constants, output file paths
+scripts/
+  99_reproduce_all.py — main entry point to run the pipeline end-to-end
 
 
 ## Notes on scope and reproducibility

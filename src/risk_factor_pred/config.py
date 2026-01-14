@@ -18,20 +18,13 @@ INTERIM_ITEM1A_DIR = INTERIM_DIR / "item1a"
 INTERIM_FEATURES_DIR = INTERIM_DIR / "text_features"
 INTERIM_RETURNS_DIR = INTERIM_DIR / "returns"
 
-PROCESSED_PANEL_DIR = PROCESSED_DIR / "panel.parquet"
+PROCESSED_PANEL_DIR = PROCESSED_DIR / "panel"
 
 # ------------------------------------------------------ 
 
-OUTPUTS_DIR = ROOT_DIR / "outputs"
-OUTPUTS_TABLES_DIR = OUTPUTS_DIR / "tables"
-OUTPUTS_FIGURES_DIR = OUTPUTS_DIR / "figures"
-OUTPUTS_LOGS_DIR = OUTPUTS_DIR / "logs"
+CIK_LIST = RAW_CIKS_DIR / "cik_list.csv"                                     # csv containing list of CIKS
 
-TABLES_DIR = DATA_DIR / "tables"
-
-CIK_LIST = RAW_CIKS_DIR / "cik_list.csv"                                     # Csv containing list of CIKS
-
-SIMILARITY_FILE = INTERIM_FEATURES_DIR / "similarity.csv"
+FEATURES_FILE = INTERIM_FEATURES_DIR / "features.csv"
 RETURNS_FILE = INTERIM_RETURNS_DIR / "returns.csv"
 FINAL_DATASET = PROCESSED_PANEL_DIR / "final_dataset.csv"
 
@@ -51,13 +44,9 @@ def ensure_project_dirs() -> None:
         INTERIM_FEATURES_DIR,
         INTERIM_RETURNS_DIR,
 
-        PROCESSED_PANEL_DIR,
-        
-        OUTPUTS_TABLES_DIR,
-        OUTPUTS_FIGURES_DIR,
-        OUTPUTS_LOGS_DIR,
+        PROCESSED_PANEL_DIR
     ]:
         p.mkdir(parents=True, exist_ok=True)
 
 
-SIMILARITY_FIELDS = ["cik", "date_a", "date_b", "distance", "similarity", "len_a", "len_b", "sentiment"]
+FEATURES_FIELDS = ["cik", "date_a", "date_b", "distance", "levenshtein", "len_a", "len_b", "sentiment"]

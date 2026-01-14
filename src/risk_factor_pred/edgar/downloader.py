@@ -21,7 +21,7 @@ def download_for_cik(cik: str):
 
 def download(ciks):
     """
-    Download and clean filings for a collection of CIKs using multithreading.
+    Download filings for a collection of CIKs using multithreading.
 
     The function submits one task per CIK to a ThreadPoolExecutor and consumes
     results as tasks finish using `as_completed`. It prints a progress counter
