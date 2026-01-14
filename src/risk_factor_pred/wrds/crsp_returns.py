@@ -1,4 +1,4 @@
-from risk_factor_pred.config import CIK_LIST, INTERIM_ITEM1A_DIR
+from risk_factor_pred.config import INTERIM_ITEM1A_DIR
 import pandas as pd
 from sqlalchemy import text
 import wrds

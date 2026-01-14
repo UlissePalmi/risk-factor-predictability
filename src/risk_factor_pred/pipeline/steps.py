@@ -1,77 +1,119 @@
-from risk_factor_pred.config import ensure_project_dirs, RAW_EDGAR_DIR, INTERIM_CLEANED_DIR, SIMILARITY_FIELDS, SIMILARITY_FILE, INTERIM_ITEM1A_DIR, FINAL_DATASET, RETURNS_FILE
+from risk_factor_pred.config import ensure_project_dirs, RAW_EDGAR_DIR, INTERIM_CLEANED_DIR, SIMILARITY_FIELDS, SIMILARITY_FILE, INTERIM_ITEM1A_DIR, FINAL_DATASET, RETURNS_FILE, CIK_LIST
 from risk_factor_pred.edgar import cik_index as cl, downloader as sd
 from risk_factor_pred.text import clean as hc, segment as si, tokenize as sm
 from risk_factor_pred.wrds import crsp_returns as cr
 from risk_factor_pred.datasets import build_panel as bp
 from risk_factor_pred.models import rf_setup as rs, rf_classification as rc, rf_regression as rr
+from typing import Iterable, List, Optional
+from pathlib import Path
 import pandas as pd
+import argparse
 import csv
 
-def step_00_build_universe():
+def _digits_only(x: str) -> str:
+    return "".join(ch for ch in x if ch.isdigit())
+
+def _resolve_cik_dirs(base_dir: Path, ciks: Optional[Iterable[str]]) -> List[str]:
+    """
+    Resolve a list of CIK directory names under base_dir.
+    - If ciks is None: return all subdirectory names.
+    - If provided: try both padded/unpadded representations and pick the one that exists.
+    """
+    if ciks is None:
+        return sorted([p.name for p in base_dir.iterdir() if p.is_dir()])
+
+    resolved: List[str] = []
+    for cik in ciks:
+        raw = str(cik).strip()
+        digits = _digits_only(raw)
+
+        candidates = []
+        if digits:
+            candidates.extend([digits, digits.zfill(10), digits.lstrip("0") or digits])
+        else:
+            candidates.append(raw)
+
+        picked = None
+        for cand in dict.fromkeys(candidates):  # unique, preserve order
+            if (base_dir / cand).exists():
+                picked = cand
+                break
+
+        # Fallback: if nothing exists yet (e.g., first run), keep padded form for consistency
+        if picked is None:
+            picked = digits.zfill(10) if digits else raw
+
+        resolved.append(picked)
+        return resolved
     
-    # Setup data directories
+def _parse_args():
+    p = argparse.ArgumentParser(
+        description="Reproduce the full risk-factor predictability pipeline."
+    )
+
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--cik", type=str, help="Single CIK (digits). Example: 320193")
+    g.add_argument("--ciks", type=str, help="Comma-separated CIKs. Example: 320193,789019")
+
+    p.add_argument("--start-year", type=int, default=2006)
+    p.add_argument("--end-year", type=int, default=2026)
+
+    p.add_argument("--from-step", type=int, default=0, choices=range(0, 8))
+    p.add_argument("--to-step", type=int, default=7, choices=range(0, 8))
+
+    return p.parse_args()
+
+def step_00_build_universe(start_year: int = 2006 , end_year: int = 2026) -> None:
     ensure_project_dirs()
-
     print("Starting cik_list.csv file generation... ")
-    cl.cik_list_builder(start_year = 2006 , end_year = 2026)
+    if not CIK_LIST.exists():
+        cl.cik_list_builder(start_year, end_year)
+    else:
+        print("CIK_LIST already exists")
 
-def step_01_download_filings():
-    
-    # Create list of ciks from excel file or request cik in input
-    ciks = cl.load_unique_ciks() if cl.inputLetter() == 'l' else [input("Enter CIK...").upper()]
-    
-    # Download 10-K and Remove HTML tags from previously created list
+def step_01_download_filings(ciks: Optional[Iterable[str]] = None):
+    # Default: use cik_list.csv
+    if ciks is None:
+        ciks = cl.load_unique_ciks()
     sd.download(ciks)
 
-def step_02_clean_filings():
-    
-    # Create list of ciks from excel file or request cik in input
-    ciks = [cik.name for cik in RAW_EDGAR_DIR.iterdir()] if cl.inputLetter() == 'l' else [input("Enter CIK...").zfill(10)]
-    
-    # Remove HTML tags from each element of previously created list
-    [hc.cleaner((cik), output_filename = "full-submission.txt") for cik in ciks]
+def step_02_clean_filings(ciks: Optional[Iterable[str]] = None) -> None:
+    # Default: clean everything present in raw download folder
+    ciks_dirs = _resolve_cik_dirs(RAW_EDGAR_DIR, ciks)
+    hc.clean_worker(ciks_dirs)
 
-def step_03_extract_item1a():
-    
-    # Create list of ciks from excel file or request cik in input
-    ciks = [p.name for p in INTERIM_CLEANED_DIR.iterdir()] if cl.inputLetter() == 'l' else [input("Enter ticker...").upper()]
+def step_03_extract_item1a(ciks: Optional[Iterable[str]] = None) -> None:
+    # Default: extract Item 1A for everything present in cleaned folder
+    ciks_dirs = _resolve_cik_dirs(INTERIM_CLEANED_DIR, ciks)
+    si.try_exercize(ciks_dirs)
 
-    # 
-    si.try_exercize(ciks)
+def step_04_compute_features(ciks: Optional[Iterable[str]] = None) -> None:
+    # Default: compute features for everything present in Item 1A folder
+    ciks_dirs = _resolve_cik_dirs(INTERIM_ITEM1A_DIR, ciks)
 
-def step_04_compute_features():
-    
-    # Create list of ciks from excel file or request cik in input
-    ciks = [p.name for p in INTERIM_ITEM1A_DIR.iterdir()] if cl.inputLetter() == 'l' else [input("Enter cik...").upper()]
-    
     with open(SIMILARITY_FILE, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=SIMILARITY_FIELDS)
         writer.writeheader()
-        
-        sm.concurrency_runner(writer, ciks)
+        sm.concurrency_runner(writer, ciks_dirs)
     
-def step_05_pull_returns():
-    
+def step_05_pull_returns() -> None:
     return_df = cr.df_with_returns()
     return_df.to_csv(RETURNS_FILE, index=False)
 
-def step_06_build_panel():
-  
+def step_06_build_panel() -> None:
     sim_df, return_df = bp.datatype_setup(pd.read_csv(SIMILARITY_FILE), pd.read_csv(RETURNS_FILE))
 
-    sim_df = bp.merge_return(sim_df, return_df, months = 18, period = 'future')
-    sim_df = bp.merge_return(sim_df, return_df, months = 12, period = 'past')
-    
+    sim_df = bp.merge_return(sim_df, return_df, months=18, period="future")
+    sim_df = bp.merge_return(sim_df, return_df, months=12, period="past")
+
     sim_df.to_csv(FINAL_DATASET, index=False)
 
-def step_07_run_models():
-    
+def step_07_run_models() -> None:
     df = pd.read_csv(FINAL_DATASET)
 
     df = rs.feature_engineering(df)
 
-    # Features X and classification target y
-    df_cat, labels = rc.create_labels(df, prediction_col = "future_18m_ret")
+    df_cat, labels = rc.create_labels(df, prediction_col="future_18m_ret")
     X, y = rs.X_y_builder(df_cat)
     rc.rf_cat(X, y, labels)
 

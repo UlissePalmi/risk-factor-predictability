@@ -1,5 +1,7 @@
 from risk_factor_pred.config import CIK_LIST, RAW_CIKS_DIR
+from risk_factor_pred.pipeline import steps
 import pandas as pd
+import argparse
 import requests
 
 def load_unique_ciks():
@@ -9,6 +11,14 @@ def load_unique_ciks():
     df = pd.read_csv(CIK_LIST)
     ciks = df["CIK"].astype(str).str.strip()
     return ciks.tolist()
+
+def _load_ciks(args):
+    if args.cik:
+        return [args.cik.strip()]
+    elif args.ciks:
+        return [x.strip() for x in args.ciks.split(",") if x.strip()]
+    else:
+        return None
 
 def inputLetter():
     """

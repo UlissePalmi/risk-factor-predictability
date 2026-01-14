@@ -71,7 +71,6 @@ def make_comps(cik):
     checkdate_path = INTERIM_CLEANED_DIR / cik / "10-K"
     
     for i in folders_path.iterdir():
-        print("sono qui")
     
     
         date_data.append(check_date(checkdate_path / i.name) if (i / "item1A.txt").is_file() else None) 
@@ -194,8 +193,7 @@ def levenshtein_tokens(a_tokens, b_tokens, cik):
         # ensure n <= m for memory efficiency
         a_tokens, b_tokens = b_tokens, a_tokens
         m, n = n, m
-    # SCrivi piu sinstetico
-    #
+
     prev = list(range(n + 1))  # row 0..n
     for i in range(1, m + 1):
         cur = [i] + [0]*n
@@ -221,6 +219,13 @@ def levenshtein_tokens(a_tokens, b_tokens, cik):
         print()
         prev = cur
     return prev[n], new_words
+
+def jaccard_similarity(text_a: str, text_b: str) -> float:
+    A = set(tokenize(text_a))
+    B = set(tokenize(text_b))
+    if not A and not B:
+        return 1.0
+    return len(A & B) / len(A | B)
 
 def min_edit_similarity(text_a: str, text_b: str, dict, cik):
     """
@@ -256,13 +261,14 @@ def min_edit_similarity(text_a: str, text_b: str, dict, cik):
     A, B = tokenize(text_a), tokenize(text_b)
     dist, new_words = levenshtein_tokens(A, B, cik)
     denom = len(A) + len(B)
-    sim = 1.0 - (dist / denom if denom else 0.0)
+    lev = 1.0 - (dist / denom if denom else 0.0)
     return {
         "cik": cik, 
         "date_a": dict["date1"], 
         "date_b": dict["date2"], 
         "distance": dist, 
-        "similarity": sim, 
+        "levenshtein": lev, 
         "len_a": len(A), 
         "len_b": len(B), 
-        "sentiment": mean_vader_compound(new_words)}
+        "sentiment": mean_vader_compound(new_words)
+        }

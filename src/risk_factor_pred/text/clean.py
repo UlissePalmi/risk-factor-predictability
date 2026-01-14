@@ -1,7 +1,6 @@
-from risk_factor_pred.config import RAW_EDGAR_DIR, INTERIM_CLEANED_DIR
+from risk_factor_pred.config import RAW_EDGAR_DIR, INTERIM_CLEANED_DIR, MAX_WORKERS
 import re
-from typing import List
-import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # --------------------------------------------------------------------------------------------------------------------
 #                                              REGEX FOR HTML CLEANING
@@ -337,7 +336,6 @@ def clean_html(file_content):
 
     cleaned = strip_all_html_tags(cleaned)
     cleaned = remove_numeric_entities(cleaned)
-    #cleaned = soft_unwrap_html_lines(cleaned)
     cleaned = break_on_item_heads(cleaned)
     cleaned = clean_lines(cleaned)
     return cleaned
@@ -483,7 +481,13 @@ def print_10X(SAVE_path, html_content):
     with open(SAVE_path, "w", encoding='utf-8') as new_file:
         new_file.write(html_content)
 
-def cleaner(cik, output_filename):
+
+def clean_worker(ciks):
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        for _ in executor.map(cleaner, ciks):
+            pass
+
+def cleaner(cik):
     """
     Clean all downloaded 10-K filings for a given CIK folder and write outputs.
 
@@ -494,19 +498,23 @@ def cleaner(cik, output_filename):
       - runs HTML cleaning + item-heading normalization,
       - writes the cleaned text to `output_filename` inside each filing directory.
     """
-    folders_path = RAW_EDGAR_DIR / cik / "10-K"
-    dst_root = INTERIM_CLEANED_DIR / cik / "10-K"
-    for acc_dir in folders_path.iterdir():
-        print(acc_dir.name)
+    try:
+        output_filename = "full-submission.txt"
+        folders_path = RAW_EDGAR_DIR / cik / "10-K"
+        dst_root = INTERIM_CLEANED_DIR / cik / "10-K"
+        for acc_dir in folders_path.iterdir():
+            print(acc_dir.name)
 
-        src_file = acc_dir / output_filename
-        html_content = cleaning_items(print_clean_txt(src_file))
+            src_file = acc_dir / output_filename
+            html_content = cleaning_items(print_clean_txt(src_file))
 
-        dst_dir = dst_root / acc_dir.name
-        dst_dir.mkdir(parents=True, exist_ok=True)
+            dst_dir = dst_root / acc_dir.name
+            dst_dir.mkdir(parents=True, exist_ok=True)
 
-        dst_file = dst_dir / output_filename
-        print(f"save path: {dst_file}")
+            dst_file = dst_dir / output_filename
+            print(f"save path: {dst_file}")
 
-        print_10X(dst_file, html_content)
+            print_10X(dst_file, html_content)
+    except:
+        print(f"Cleaning Failed on {cik}")
     return

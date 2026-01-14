@@ -18,7 +18,7 @@ INTERIM_ITEM1A_DIR = INTERIM_DIR / "item1a"
 INTERIM_FEATURES_DIR = INTERIM_DIR / "text_features"
 INTERIM_RETURNS_DIR = INTERIM_DIR / "returns"
 
-PROCESSED_PANEL_PATH = PROCESSED_DIR / "panel.parquet"
+PROCESSED_PANEL_DIR = PROCESSED_DIR / "panel.parquet"
 
 # ------------------------------------------------------ 
 
@@ -27,14 +27,13 @@ OUTPUTS_TABLES_DIR = OUTPUTS_DIR / "tables"
 OUTPUTS_FIGURES_DIR = OUTPUTS_DIR / "figures"
 OUTPUTS_LOGS_DIR = OUTPUTS_DIR / "logs"
 
-
 TABLES_DIR = DATA_DIR / "tables"
 
 CIK_LIST = RAW_CIKS_DIR / "cik_list.csv"                                     # Csv containing list of CIKS
 
 SIMILARITY_FILE = INTERIM_FEATURES_DIR / "similarity.csv"
 RETURNS_FILE = INTERIM_RETURNS_DIR / "returns.csv"
-FINAL_DATASET = PROCESSED_PANEL_PATH / "final_dataset.csv"
+FINAL_DATASET = PROCESSED_PANEL_DIR / "final_dataset.csv"
 
 # ---------- SETTINGS ----------
 FORM       = "10-K"                                                 # or "10-K", "10-KT", etc.
@@ -52,7 +51,7 @@ def ensure_project_dirs() -> None:
         INTERIM_FEATURES_DIR,
         INTERIM_RETURNS_DIR,
 
-        PROCESSED_PANEL_PATH,
+        PROCESSED_PANEL_DIR,
         
         OUTPUTS_TABLES_DIR,
         OUTPUTS_FIGURES_DIR,
