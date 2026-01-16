@@ -37,7 +37,6 @@ def rf_cat(X, y, labels):
         X,
         y,
         test_size=0.20,
-        shuffle=True,
         random_state=42,
         stratify=y  # important: preserve class proportions
     )
