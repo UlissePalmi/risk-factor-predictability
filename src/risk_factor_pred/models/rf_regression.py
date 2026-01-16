@@ -11,7 +11,7 @@ def rf_reg(X, y, df):
     predictions to `pred_check.csv` for inspection.
     """
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, shuffle=True, random_state=42
+        X, y, test_size=0.20, random_state=42
     )
 
     # Random Forest model for returns
