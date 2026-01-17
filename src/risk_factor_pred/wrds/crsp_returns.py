@@ -1,4 +1,4 @@
-from risk_factor_pred.config import INTERIM_ITEM1A_DIR
+from risk_factor_pred.config import INTERIM_ITEM1A_DIR, CIK_LIST
 import pandas as pd
 from sqlalchemy import text
 import wrds
@@ -42,8 +42,14 @@ def df_with_returns():
     For each CIK, runs the WRDS query, keeps (cik, date, ret), and concatenates results
     into a single dataframe.
     """
+    list_cik_df = pd.read_csv(CIK_LIST)
+    
     db = wrds.Connection(wrds_username='username')
-    ciks = [p.name for p in INTERIM_ITEM1A_DIR.iterdir()]
+    
+    #ciks = [p.name for p in INTERIM_ITEM1A_DIR.iterdir()]
+    ciks = list_cik_df['CIK'].unique().tolist()
+    ciks = [str(cik).zfill(10) for cik in ciks]
+    
     dfs = []
 
     for cik in ciks:

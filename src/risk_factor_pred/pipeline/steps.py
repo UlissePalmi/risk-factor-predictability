@@ -132,6 +132,9 @@ def step_05_pull_returns() -> None:
     """
     return_df = cr.df_with_returns()
     return_df.to_csv(RETURNS_FILE, index=False)
+    old_ciks_df = pd.read_csv(CIK_LIST)
+    old_ciks_df[old_ciks_df['CIK']==return_df['CIK']]
+    print(old_ciks_df)
 
 def step_06_build_panel() -> None:
     """
